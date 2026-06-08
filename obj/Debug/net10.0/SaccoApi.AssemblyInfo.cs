@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SaccoApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+89b369e20076a6c1d1ed8e58f66946861a0dfb36")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9ce0791233b10f9576f707f5d1907ce7ebadb935")]
 [assembly: System.Reflection.AssemblyProductAttribute("SaccoApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SaccoApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
