@@ -75,6 +75,16 @@
     @apply px-2.5 py-1 rounded-full text-xs font-semibold;
   }
 
+ /* Hide scrollbar for Chrome, Safari and Opera */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
   /* Layout helpers */
   .page-header {
     @apply flex justify-between items-center mb-6;

@@ -83,7 +83,26 @@ export default function DashboardLayout({ tabs, activeTab, onTabChange,
           </div>
         </div>
 
-
+      
+{/* Mobile Bottom Navigation - Text Only & Horizontally Scrollable */}
+<div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+  <div className="flex overflow-x-auto hide-scrollbar px-2 py-3 space-x-2">
+    {/* Use your memberTabs or tabs array here depending on the user role */}
+    {tabs.map((tab) => (
+      <button
+        key={tab.id}
+        onClick={() => setActiveTab(tab.id)}
+        className={`whitespace-nowrap px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+          activeTab === tab.id
+            ? 'bg-blue-600 text-white shadow-md'
+            : 'text-slate-600 bg-slate-50 hover:bg-slate-100'
+        }`}
+      >
+        {tab.label}
+      </button>
+    ))}
+  </div>
+</div>
 
         {/* Cycle status */}
         {sidebarOpen && (

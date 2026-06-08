@@ -124,74 +124,58 @@ export default function MemberDashboard() {
       {activeTab === 'overview' && (
         <div>
           {/* Welcome banner */}
-          <div className="bg-gradient-to-r from-primary-700 to-primary-800 
-            rounded-2xl p-6 mb-6 text-white shadow-lg">
-            <p className="text-primary-100 text-sm mb-1">Welcome back</p>
-            <h2 className="text-2xl font-bold">
+          <div className="bg-slate-900 rounded-2xl p-6 mb-6 text-white shadow-md">
+            <p className="text-slate-400 text-sm mb-1">Welcome back</p>
+            <h2 className="text-2xl font-bold tracking-tight">
               {user?.fullName?.split(' ')[0] || 'Member'} 👋
             </h2>
             {activeCycle ? (
-              <p className="text-primary-100 text-sm mt-2">
-                Active in <strong className="text-white">
-                  {activeCycle.name}
-                </strong> — Weekly contribution:{' '}
-                <strong className="text-white">
-                  KES {activeCycle.weeklyContributionAmount?.toLocaleString()}
-                </strong>
-              </p>
-            ) : (
-              <p className='text-primary text-sm mt-2'>No active cycle yet.</p>
-            )}
-          </div>
+              <div className="mt-3 pt-3 border-t border-slate-700/50">
+                <p className="text-slate-300 text-sm">
+                  Active in <span className="font-semibold text-white">{activeCycle.name}</span>
+                   <span className="mx-2 text-slate-500">|</span>
+                  Weekly: <span className="font-semibold text-white">KES {activeCycle.weeklyContributionAmount?.toLocaleString()}</span>
+                  </p>
+    </div>
+  ) : (
+    <p className="text-slate-400 text-sm mt-3 pt-3 border-t border-slate-700/50">
+      No active cycle yet.
+    </p>
+  )}
+</div>
 
           {/* Personal stat cards */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            {[
-              {
-                label: 'Total Contributed',
-                value: `KES ${totalContributed.toLocaleString()}`,
-                bg: 'bg-emerald-50 hover:bg-emerald-100',
-                text: 'text-emerald-700', 
-                lbl: 'text-emerald-600'
-                
-              },
-              {
-                label: 'Payment Streak',
-                value: `${streak} week${streak !== 1 ? 's' : ''}`,
-                bg: 'bg-amber-50 hover:bg-amber-100',
-                text: 'text-amber-700',
-                lbl: 'text-amber-600'
-              },
-              {
-                label: 'Active Loan',
-                value: activeLoan
-                  ? `KES ${activeLoan.totalRepayable?.toLocaleString()}`
-                  : 'None',
-                color: activeLoan ? 'text-blue-600' : 'text-gray-400',
-                bg: activeLoan ? 'bg-blue-50 hover:bg-blue-100' : 'bg-gray-50 hover:bg-gray-100',
-                lbl: activeLoan ? 'text-blue-600' : 'text-gray-400'
-              },
-              {
-                label: 'My Role',
-                value: user?.role || user?.user?.role || '_',
-                bg: 'bg-purple-50 hover:bg-purple-100',
-                text: 'text-purple-700',
-                lbl: 'text-purple-600'
-              },
-            ].map(card => (
-              <div key={card.label}
-                className={`stat-card border ${card.border}`}>
-                <div className={`inline-flex items-center justify-center 
-                  w-10 h-10 ${card.bg} rounded-lg text-xl mb-3`}>
-                  {card.icon}
-                </div>
-                <p className="text-xs text-gray-500 mb-1">{card.label}</p>
-                <p className={`text-lg font-bold ${card.color}`}>
-                  {card.value}
-                </p>
-              </div>
-            ))}
-          </div>
+          <div className="grid grid-cols-2 gap-4 mb-6">
+  {[
+    { label: 'Total Contributed',
+      value: `KES ${totalContributed.toLocaleString()}`,
+      bg: 'bg-emerald-50 hover:bg-emerald-100',
+      text: 'text-emerald-900', lbl: 'text-emerald-700' },
+    { label: 'Payment Streak',
+      value: `${streak} week${streak !== 1 ? 's' : ''}`,
+      bg: 'bg-amber-50 hover:bg-amber-100',
+      text: 'text-amber-900', lbl: 'text-amber-700' },
+    { label: 'Active Loan',
+      value: activeLoan ? `KES ${activeLoan.totalRepayable?.toLocaleString()}` : 'None',
+      bg: activeLoan ? 'bg-blue-50 hover:bg-blue-100' : 'bg-slate-50 hover:bg-slate-100',
+      text: activeLoan ? 'text-blue-900' : 'text-slate-700',
+      lbl: activeLoan ? 'text-blue-700' : 'text-slate-500' },
+    { label: 'My Role',
+      value: user?.role || user?.user?.role || '—',
+      bg: 'bg-purple-50 hover:bg-purple-100',
+      text: 'text-purple-900', lbl: 'text-purple-700' },
+  ].map(card => (
+    <div key={card.label}
+      className={`p-5 rounded-2xl transition-colors duration-200 cursor-default border border-white/50 shadow-sm ${card.bg}`}>
+      <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${card.lbl}`}>
+        {card.label}
+      </p>
+      <p className={`text-xl font-bold ${card.text}`}>
+        {card.value}
+      </p>
+    </div>
+  ))}
+</div>
 
           {/* Group pool summary */}
           {summary && (
