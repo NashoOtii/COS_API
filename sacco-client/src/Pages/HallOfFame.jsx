@@ -7,31 +7,26 @@ export default function HallOfFame() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(null)
 
-  useEffect(() => {
-    fetchArchivedCycles()
-  }, [])
+  useEffect(() => { fetchArchivedCycles() }, [])
 
   const fetchArchivedCycles = async () => {
     try {
       const { data } = await api.get('/cycles')
       const archived = data.filter(c => c.status === 'Archived')
       setCycles(archived)
-
-      // Fetch summary for each archived cycle
-      const summaryResults = {}
+      const results = {}
       await Promise.all(
         archived.map(async (cycle) => {
           try {
-            const { data: sum } = await api.get(`/cycles/${cycle.id}/summary`)
-            summaryResults[cycle.id] = sum
+            const { data: sum } = await api.get(
+              `/cycles/${cycle.id}/summary`)
+            results[cycle.id] = sum
           } catch {
-            summaryResults[cycle.id] = null
+            results[cycle.id] = null
           }
         })
       )
-      setSummaries(summaryResults)
-    } catch {
-      // fail silently
+      setSummaries(results)
     } finally {
       setLoading(false)
     }
@@ -39,74 +34,68 @@ export default function HallOfFame() {
 
   const toggle = (id) => setExpanded(expanded === id ? null : id)
 
+  const medals = ['🥇', '🥈', '🥉']
+
   if (loading) return (
-    <p style={{ color: '#94a3b8' }}>Loading Hall of Fame...</p>
+    <div className="flex items-center justify-center py-20">
+      <p className="text-gray-400">Loading Hall of Fame...</p>
+    </div>
   )
 
   return (
     <div>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: '0 0 0.5rem' }}>🏆 Hall of Fame</h2>
-        <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.875rem' }}>
-          A record of every completed cycle — the foundation this group was built on.
-        </p>
+      <div className="page-header">
+        <div>
+          <h2 className="section-title">🏆 Hall of Fame</h2>
+          <p className="text-gray-500 text-sm mt-1">
+            A record of every completed cycle — the foundation this group
+            was built on.
+          </p>
+        </div>
       </div>
 
       {cycles.length === 0 ? (
-        <div style={{
-          background: '#1e293b', borderRadius: '12px',
-          padding: '3rem', textAlign: 'center',
-          border: '1px solid #334155', color: '#94a3b8'
-        }}>
-          <p style={{ fontSize: '2rem', margin: '0 0 1rem' }}>🏛️</p>
-          <p style={{ margin: '0 0 0.5rem', color: 'white', fontWeight: '600' }}>
+        <div className="card text-center py-16">
+          <p className="text-5xl mb-4">🏛️</p>
+          <p className="text-gray-900 font-semibold mb-2">
             No archived cycles yet
           </p>
-          <p style={{ margin: 0, fontSize: '0.875rem' }}>
-            Completed cycles will appear here once they are closed and archived.
+          <p className="text-gray-500 text-sm">
+            Completed cycles will appear here once closed and archived.
           </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="flex flex-col gap-4">
           {cycles.map((cycle, index) => {
             const sum = summaries[cycle.id]
             const isOpen = expanded === cycle.id
-            const cycleNumber = cycles.length - index
 
             return (
-              <div key={cycle.id} style={{
-                background: '#1e293b', borderRadius: '12px',
-                border: '1px solid #334155', overflow: 'hidden'
-              }}>
-                {/* Cycle Header — always visible */}
+              <div key={cycle.id}
+                className="card p-0 overflow-hidden">
+
+                {/* Header */}
                 <div
                   onClick={() => toggle(cycle.id)}
-                  style={{
-                    padding: '1.25rem 1.5rem', cursor: 'pointer',
-                    display: 'flex', justifyContent: 'space-between',
-                    alignItems: 'center',
-                    background: isOpen ? '#0f172a' : 'transparent'
-                  }}
+                  className={`flex justify-between items-center p-5
+                    cursor-pointer transition-colors
+                    ${isOpen ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    {/* Medal */}
-                    <div style={{
-                      width: '40px', height: '40px', borderRadius: '50%',
-                      display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: '1.25rem',
-                      background: index === 0 ? '#854d0e' :
-                        index === 1 ? '#475569' :
-                        index === 2 ? '#78350f' : '#1e3a5f'
-                    }}>
-                      {index === 0 ? '🥇' : index === 1 ? '🥈' :
-                        index === 2 ? '🥉' : '🏅'}
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center
+                      justify-center text-2xl flex-shrink-0
+                      ${index === 0 ? 'bg-amber-100' :
+                        index === 1 ? 'bg-gray-100' :
+                        index === 2 ? 'bg-orange-100' : 'bg-blue-50'}`}>
+                      {medals[index] || '🏅'}
                     </div>
                     <div>
-                      <h3 style={{ margin: '0 0 0.25rem', fontSize: '1rem' }}>
+                      <h3 className="font-semibold text-gray-900">
                         {cycle.name}
                       </h3>
-                      <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.75rem' }}>
-                        {new Date(cycle.startDate).toLocaleDateString()} —{' '}
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {new Date(cycle.startDate).toLocaleDateString()}
+                        {' '}—{' '}
                         {cycle.endDate
                           ? new Date(cycle.endDate).toLocaleDateString()
                           : 'TBD'}
@@ -114,120 +103,92 @@ export default function HallOfFame() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    {/* Quick stats */}
+                  <div className="flex items-center gap-6">
                     {sum && (
-                      <div style={{
-                        display: 'flex', gap: '1.5rem',
-                        fontSize: '0.875rem'
-                      }}>
-                        <div style={{ textAlign: 'right' }}>
-                          <p style={{ margin: 0, color: '#64748b', fontSize: '0.75rem' }}>
-                            Pool
-                          </p>
-                          <p style={{ margin: 0, color: '#4ade80', fontWeight: '600' }}>
+                      <div className="hidden md:flex gap-6 text-right">
+                        <div>
+                          <p className="text-xs text-gray-400">Pool</p>
+                          <p className="text-sm font-bold text-green-600">
                             KES {sum.totalContributions?.toLocaleString()}
                           </p>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <p style={{ margin: 0, color: '#64748b', fontSize: '0.75rem' }}>
-                            Interest
-                          </p>
-                          <p style={{ margin: 0, color: '#60a5fa', fontWeight: '600' }}>
+                        <div>
+                          <p className="text-xs text-gray-400">Interest</p>
+                          <p className="text-sm font-bold text-blue-600">
                             KES {sum.totalInterestEarned?.toLocaleString()}
                           </p>
                         </div>
                       </div>
                     )}
-                    <span style={{ color: '#475569', fontSize: '1.25rem' }}>
+                    <span className="text-gray-400 text-sm">
                       {isOpen ? '▲' : '▼'}
                     </span>
                   </div>
                 </div>
 
-                {/* Expanded Detail */}
+                {/* Expanded */}
                 {isOpen && sum && (
-                  <div style={{
-                    padding: '1.5rem', borderTop: '1px solid #334155'
-                  }}>
-                    {/* Full Stats Grid */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                      gap: '1rem', marginBottom: '1.5rem'
-                    }}>
+                  <div className="p-5 border-t border-gray-100">
+                    <div className="grid grid-cols-2 md:grid-cols-5
+                      gap-3 mb-4">
                       {[
-                        { label: 'Total Contributions',
-                          value: `KES ${sum.totalContributions?.toLocaleString()}`,
-                          color: '#4ade80', icon: '💰' },
+                        { label: 'Contributions',
+                          value: sum.totalContributions,
+                          icon: '💰', color: 'text-green-600',
+                          bg: 'bg-green-50' },
                         { label: 'Loans Issued',
-                          value: `KES ${sum.totalLoansIssued?.toLocaleString()}`,
-                          color: '#f59e0b', icon: '🏦' },
-                        { label: 'Interest Earned',
-                          value: `KES ${sum.totalInterestEarned?.toLocaleString()}`,
-                          color: '#60a5fa', icon: '📈' },
-                        { label: 'Penalties Collected',
-                          value: `KES ${sum.totalPenaltiesCollected?.toLocaleString()}`,
-                          color: '#a855f7', icon: '⚠️' },
-                        { label: 'Final Pool Balance',
-                          value: `KES ${sum.poolBalance?.toLocaleString()}`,
-                          color: '#4ade80', icon: '🏆' },
+                          value: sum.totalLoansIssued,
+                          icon: '🏦', color: 'text-amber-600',
+                          bg: 'bg-amber-50' },
+                        { label: 'Interest',
+                          value: sum.totalInterestEarned,
+                          icon: '📈', color: 'text-blue-600',
+                          bg: 'bg-blue-50' },
+                        { label: 'Penalties',
+                          value: sum.totalPenaltiesCollected,
+                          icon: '⚠️', color: 'text-purple-600',
+                          bg: 'bg-purple-50' },
+                        { label: 'Final Balance',
+                          value: sum.poolBalance,
+                          icon: '🏆', color: 'text-green-600',
+                          bg: 'bg-green-50' },
                       ].map(stat => (
-                        <div key={stat.label} style={{
-                          background: '#0f172a', borderRadius: '10px',
-                          padding: '1rem', border: '1px solid #334155'
-                        }}>
-                          <p style={{ margin: '0 0 0.25rem',
-                            fontSize: '1.25rem' }}>
-                            {stat.icon}
-                          </p>
-                          <p style={{ margin: '0 0 0.25rem',
-                            color: '#64748b', fontSize: '0.75rem' }}>
+                        <div key={stat.label}
+                          className={`${stat.bg} rounded-xl p-3
+                            border border-gray-100`}>
+                          <p className="text-base mb-1">{stat.icon}</p>
+                          <p className="text-xs text-gray-500 mb-1">
                             {stat.label}
                           </p>
-                          <p style={{ margin: 0, fontWeight: '700',
-                            color: stat.color, fontSize: '1rem' }}>
-                            {stat.value}
+                          <p className={`font-bold text-sm ${stat.color}`}>
+                            KES {stat.value?.toLocaleString()}
                           </p>
                         </div>
                       ))}
                     </div>
 
-                    {/* Cycle settings reference */}
-                    <div style={{
-                      background: '#0f172a', borderRadius: '10px',
-                      padding: '1rem', border: '1px solid #334155',
-                      display: 'flex', gap: '2rem', flexWrap: 'wrap'
-                    }}>
+                    <div className="flex flex-wrap gap-4 bg-gray-50
+                      rounded-xl p-4 border border-gray-100">
                       <div>
-                        <p style={{ margin: '0 0 0.25rem',
-                          color: '#64748b', fontSize: '0.75rem' }}>
+                        <p className="text-xs text-gray-500 mb-1">
                           Weekly Contribution
                         </p>
-                        <p style={{ margin: 0, fontWeight: '600' }}>
+                        <p className="text-sm font-semibold text-gray-900">
                           KES {cycle.weeklyContributionAmount?.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p style={{ margin: '0 0 0.25rem',
-                          color: '#64748b', fontSize: '0.75rem' }}>
-                          Max Loan Amount
+                        <p className="text-xs text-gray-500 mb-1">
+                          Max Loan
                         </p>
-                        <p style={{ margin: 0, fontWeight: '600' }}>
+                        <p className="text-sm font-semibold text-gray-900">
                           KES {cycle.maxLoanAmount?.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p style={{ margin: '0 0 0.25rem',
-                          color: '#64748b', fontSize: '0.75rem' }}>
-                          Status
-                        </p>
-                        <span style={{
-                          padding: '0.2rem 0.6rem', borderRadius: '9999px',
-                          fontSize: '0.75rem', fontWeight: '600',
-                          background: '#1a3a2a', color: '#4ade80'
-                        }}>
-                          Archived ✓
+                        <p className="text-xs text-gray-500 mb-1">Status</p>
+                        <span className="badge bg-green-100 text-green-700">
+                          ✓ Archived
                         </span>
                       </div>
                     </div>
@@ -235,10 +196,8 @@ export default function HallOfFame() {
                 )}
 
                 {isOpen && !sum && (
-                  <div style={{
-                    padding: '1.5rem', borderTop: '1px solid #334155',
-                    color: '#94a3b8', fontSize: '0.875rem'
-                  }}>
+                  <div className="p-5 border-t border-gray-100
+                    text-gray-500 text-sm">
                     Summary data unavailable for this cycle.
                   </div>
                 )}

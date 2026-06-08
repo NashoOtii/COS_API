@@ -8,7 +8,7 @@ using SaccoApi.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-
+using Microsoft.AspNetCore.RateLimiting;
 namespace SaccoApi.Controllers
 {
     [ApiController]
@@ -42,7 +42,19 @@ namespace SaccoApi.Controllers
 
              // Parse role string to enum safely
             if (!Enum.TryParse<MemberRole>(dto.Role, ignoreCase: true, out var memberRole))
-                return BadRequest($"Invalid role '{dto.Role}'. Valid roles: Member, Treasurer, Secretary, Chairperson.");   
+                return BadRequest($"Invalid role '{dto.Role}'. Valid roles: Member, Treasurer, Secretary, Chairperson."); 
+
+               // Enforce one person per executive role
+    if (memberRole != MemberRole.Member)
+    {
+        bool roleAlreadyTaken = await _context.Members
+            .AnyAsync(m => m.Role == memberRole && m.Status == MemberStatus.Active);
+
+        if (roleAlreadyTaken)
+            return BadRequest(
+                $"The {dto.Role} position is already filled. " +
+                $"Contact your executive team to make changes.");
+    }    
 
             // Create the Identity user (handles password hashing)
             var user = new IdentityUser
@@ -67,7 +79,7 @@ namespace SaccoApi.Controllers
                 PhoneNumber = dto.PhoneNumber,
                 Email = dto.Email,
                 Role = memberRole,
-                Status = MemberStatus.Active,
+                Status = MemberStatus.Inactive,//pends approval
                 DateJoined = DateTime.UtcNow,
                 ApplicationUserId = user.Id
             };
@@ -75,11 +87,17 @@ namespace SaccoApi.Controllers
             _context.Members.Add(member);
             await _context.SaveChangesAsync();
 
-            return Ok(new { Message = "Registration successful.", MemberId = member.Id });
+             return Ok(new
+    {
+        Message = "Registration submitted. Your account is pending approval " +
+                  "this may take a few days.",
+        MemberId = member.Id
+    });
         }
 
         // POST: api/auth/login
         [HttpPost("login")]
+        [EnableRateLimiting("login")] // <--- added this to protect against brute-force attacks
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             // Find user by phone number
@@ -91,10 +109,16 @@ namespace SaccoApi.Controllers
             if (!passwordValid)
                 return Unauthorized("Invalid phone number or password.");
 
-            // Get roles and linked member record
-            var roles = await _userManager.GetRolesAsync(user);
+            // Get linked member record
             var member = await _context.Members
                 .FirstOrDefaultAsync(m => m.ApplicationUserId == user.Id);
+
+            if (member == null || member.Status == MemberStatus.Inactive)
+                return Unauthorized(
+                    "Your account is pending approval from the executive team. " +
+                    "Please wait for confirmation before logging in.");
+
+            var roles = await _userManager.GetRolesAsync(user);
 
             // Build JWT token
             var token = GenerateToken(user, roles, member);

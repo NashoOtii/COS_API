@@ -33,6 +33,16 @@ namespace SaccoApi.Controllers
             return member;
         }
 
+        // GET: api/members/pending
+[HttpGet("pending")]
+public async Task<ActionResult<IEnumerable<Member>>> GetPending()
+{
+    return await _context.Members
+        .Where(m => m.Status == MemberStatus.Inactive)
+        .OrderBy(m => m.DateJoined)
+        .ToListAsync();
+}
+
         // POST: api/members
        [HttpPost]
 public async Task<ActionResult<Member>> Create(CreateMemberDto dto)

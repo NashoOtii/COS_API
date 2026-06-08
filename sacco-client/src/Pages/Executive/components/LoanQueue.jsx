@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react'
 import api from '../../../api/axios'
 import { useAuth } from '../../../context/AuthContext'
+import { SkeletonTable } from '../../../components/Skeleton'
 
 export default function LoanQueue({ activeCycle }) {
   const { user } = useAuth()
   const [loans, setLoans] = useState([])
+  const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [requestForm, setRequestForm] = useState({
-    memberId: '',
-    principal: '',
-    repaymentWeeks: '',
+    memberId: '', principal: '', repaymentWeeks: '',
   })
-  const [members, setMembers] = useState([])
 
   useEffect(() => {
     fetchLoans()
@@ -52,7 +51,8 @@ export default function LoanQueue({ activeCycle }) {
   const approve = async (loanId) => {
     setMessage('')
     try {
-      await api.patch(`/loans/${loanId}/approve?approvedById=${user.memberId}`)
+      await api.patch(
+        `/loans/${loanId}/approve?approvedById=${user.memberId}`)
       await fetchLoans()
       setMessage('Loan approved successfully.')
     } catch (err) {
@@ -71,35 +71,47 @@ export default function LoanQueue({ activeCycle }) {
     }
   }
 
-  const statusColor = (status) => {
+  const statusStyle = (status) => {
     const map = {
-      Pending: { bg: '#3b2800', color: '#fbbf24' },
-      Approved: { bg: '#1a3a2a', color: '#4ade80' },
-      Active: { bg: '#1e3a5f', color: '#60a5fa' },
-      Repaid: { bg: '#1e293b', color: '#94a3b8' },
-      Defaulted: { bg: '#3b1a1a', color: '#f87171' },
+      Pending:  'bg-amber-100 text-amber-700',
+      Approved: 'bg-green-100 text-green-700',
+      Active:   'bg-blue-100 text-blue-700',
+      Repaid:   'bg-gray-100 text-gray-600',
+      Defaulted:'bg-red-100 text-red-700',
     }
-    return map[status] || { bg: '#1e293b', color: '#94a3b8' }
+    return map[status] || 'bg-gray-100 text-gray-600'
   }
 
-  if (loading) return <p style={{ color: '#94a3b8' }}>Loading loans...</p>
+  const pendingCount = loans.filter(l => l.status === 'Pending').length
+
+  if (loading) return (
+  <div>
+    <div className="page-header">
+      <div className="h-7 bg-gray-200 rounded w-32 animate-pulse" />
+    </div>
+    <SkeletonTable rows={6} />
+  </div>
+  )
 
   return (
     <div>
-      {/* Header */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: '1.5rem'
-      }}>
-        <h2 style={{ margin: 0 }}>Loan Queue ({loans.length})</h2>
+      <div className="page-header">
+        <div>
+          <h2 className="section-title">Loan Queue</h2>
+          <p className="text-gray-500 text-sm mt-1">
+            {loans.length} total ·{' '}
+            {pendingCount > 0 && (
+              <span className="text-amber-600 font-medium">
+                {pendingCount} pending approval
+              </span>
+            )}
+            {pendingCount === 0 && 'All loans processed'}
+          </p>
+        </div>
         {activeCycle && (
           <button
             onClick={() => setShowRequestForm(!showRequestForm)}
-            style={{
-              padding: '0.75rem 1.5rem', background: '#2563eb',
-              border: 'none', borderRadius: '8px',
-              color: 'white', cursor: 'pointer', fontWeight: '600'
-            }}
+            className="btn-primary"
           >
             {showRequestForm ? 'Cancel' : '+ Request Loan'}
           </button>
@@ -107,44 +119,31 @@ export default function LoanQueue({ activeCycle }) {
       </div>
 
       {message && (
-        <p style={{
-          color: message.includes('success') ? '#4ade80' : '#f87171',
-          marginBottom: '1rem'
-        }}>
+        <div className={`mb-4 p-4 rounded-xl text-sm border ${
+          message.includes('success') || message.includes('approved')
+            || message.includes('disbursed')
+            ? 'bg-green-50 border-green-200 text-green-700'
+            : 'bg-red-50 border-red-200 text-red-700'
+        }`}>
           {message}
-        </p>
+        </div>
       )}
 
-      {/* Request Form */}
+      {/* Loan Request Form */}
       {showRequestForm && (
-        <div style={{
-          background: '#1e293b', borderRadius: '12px',
-          padding: '1.5rem', marginBottom: '1.5rem',
-          border: '1px solid #334155'
-        }}>
-          <h3 style={{ marginTop: 0 }}>New Loan Request</h3>
+        <div className="card mb-6">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">
+            New Loan Request
+          </h3>
           <form onSubmit={handleRequest}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-              gap: '1rem', marginBottom: '1rem'
-            }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
-                <label style={{
-                  display: 'block', marginBottom: '0.5rem',
-                  fontSize: '0.875rem', color: '#94a3b8'
-                }}>
-                  Member
-                </label>
+                <label className="label">Member</label>
                 <select
                   value={requestForm.memberId}
-                  onChange={e => setRequestForm({ ...requestForm, memberId: e.target.value })}
-                  required
-                  style={{
-                    width: '100%', padding: '0.75rem',
-                    background: '#0f172a', border: '1px solid #475569',
-                    borderRadius: '6px', color: 'white',
-                    fontSize: '0.875rem', boxSizing: 'border-box'
-                  }}
+                  onChange={e => setRequestForm({
+                    ...requestForm, memberId: e.target.value })}
+                  className="input-field" required
                 >
                   <option value="">Select member...</option>
                   {members.map(m => (
@@ -153,85 +152,56 @@ export default function LoanQueue({ activeCycle }) {
                 </select>
               </div>
               <div>
-                <label style={{
-                  display: 'block', marginBottom: '0.5rem',
-                  fontSize: '0.875rem', color: '#94a3b8'
-                }}>
-                  Principal (KES)
-                </label>
-                <input
-                  type="number"
-                  placeholder={`Max: KES ${activeCycle?.maxLoanAmount?.toLocaleString()}`}
+                <label className="label">Principal (KES)</label>
+                <input type="number"
+                  placeholder={`Max KES ${
+                    activeCycle?.maxLoanAmount?.toLocaleString()}`}
                   value={requestForm.principal}
-                  onChange={e => setRequestForm({ ...requestForm, principal: e.target.value })}
-                  required
-                  style={{
-                    width: '100%', padding: '0.75rem',
-                    background: '#0f172a', border: '1px solid #475569',
-                    borderRadius: '6px', color: 'white',
-                    fontSize: '0.875rem', boxSizing: 'border-box'
-                  }}
-                />
+                  onChange={e => setRequestForm({
+                    ...requestForm, principal: e.target.value })}
+                  className="input-field" required />
               </div>
               <div>
-                <label style={{
-                  display: 'block', marginBottom: '0.5rem',
-                  fontSize: '0.875rem', color: '#94a3b8'
-                }}>
-                  Repayment Weeks
-                </label>
-                <input
-                  type="number"
-                  placeholder="e.g. 4"
-                  min="1"
-                  max="52"
+                <label className="label">Repayment Weeks</label>
+                <input type="number" placeholder="e.g. 4"
+                  min="1" max="52"
                   value={requestForm.repaymentWeeks}
-                  onChange={e => setRequestForm({ ...requestForm, repaymentWeeks: e.target.value })}
-                  required
-                  style={{
-                    width: '100%', padding: '0.75rem',
-                    background: '#0f172a', border: '1px solid #475569',
-                    borderRadius: '6px', color: 'white',
-                    fontSize: '0.875rem', boxSizing: 'border-box'
-                  }}
-                />
+                  onChange={e => setRequestForm({
+                    ...requestForm, repaymentWeeks: e.target.value })}
+                  className="input-field" required />
               </div>
             </div>
 
-            {/* Live fee preview */}
+            {/* Fee preview */}
             {requestForm.principal && (
-              <div style={{
-                background: '#0f172a', borderRadius: '8px',
-                padding: '1rem', marginBottom: '1rem',
-                border: '1px solid #334155', fontSize: '0.875rem'
-              }}>
-                <span style={{ color: '#94a3b8' }}>Principal: </span>
-                <span style={{ color: 'white' }}>
-                  KES {parseFloat(requestForm.principal).toLocaleString()}
-                </span>
-                <span style={{ color: '#94a3b8', marginLeft: '1rem' }}>
-                  Flat Fee (10%):
-                </span>
-                <span style={{ color: '#f59e0b', marginLeft: '0.25rem' }}>
-                  KES {(parseFloat(requestForm.principal) * 0.1).toLocaleString()}
-                </span>
-                <span style={{ color: '#94a3b8', marginLeft: '1rem' }}>
-                  Total Repayable:
-                </span>
-                <span style={{ color: '#4ade80', fontWeight: '600', marginLeft: '0.25rem' }}>
-                  KES {(parseFloat(requestForm.principal) * 1.1).toLocaleString()}
-                </span>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl
+                p-4 mb-4 flex flex-wrap gap-6 text-sm">
+                <div>
+                  <p className="text-blue-600 text-xs mb-0.5">Principal</p>
+                  <p className="font-bold text-blue-900">
+                    KES {parseFloat(requestForm.principal).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-blue-600 text-xs mb-0.5">Fee (10%)</p>
+                  <p className="font-bold text-amber-700">
+                    KES {(parseFloat(requestForm.principal) * 0.1)
+                      .toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-blue-600 text-xs mb-0.5">
+                    Total Repayable
+                  </p>
+                  <p className="font-bold text-green-700">
+                    KES {(parseFloat(requestForm.principal) * 1.1)
+                      .toLocaleString()}
+                  </p>
+                </div>
               </div>
             )}
 
-            <button
-              type="submit"
-              style={{
-                padding: '0.75rem 1.5rem', background: '#2563eb',
-                border: 'none', borderRadius: '8px',
-                color: 'white', cursor: 'pointer', fontWeight: '600'
-              }}
-            >
+            <button type="submit" className="btn-primary">
               Submit Request
             </button>
           </form>
@@ -240,94 +210,92 @@ export default function LoanQueue({ activeCycle }) {
 
       {/* Loans Table */}
       {loans.length === 0 ? (
-        <p style={{ color: '#94a3b8' }}>No loans requested yet.</p>
+        <div className="card text-center py-16">
+          <p className="text-5xl mb-4">🏦</p>
+          <p className="text-gray-900 font-semibold mb-2">No loans yet</p>
+          <p className="text-gray-500 text-sm">
+            Loan requests will appear here.
+          </p>
+        </div>
       ) : (
-        <div style={{
-          background: '#1e293b', borderRadius: '12px',
-          border: '1px solid #334155', overflow: 'hidden'
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="card p-0 overflow-hidden">
+          <table className="w-full">
             <thead>
-              <tr style={{ background: '#0f172a' }}>
-                {['Member', 'Principal', 'Fee', 'Total', 'Due Date', 'Status', 'Actions'].map(h => (
-                  <th key={h} style={{
-                    padding: '1rem', textAlign: 'left',
-                    fontSize: '0.75rem', color: '#94a3b8',
-                    textTransform: 'uppercase'
-                  }}>
-                    {h}
-                  </th>
+              <tr className="border-b border-gray-200">
+                {['Member', 'Principal', 'Fee', 'Total',
+                  'Due Date', 'Status', 'Actions'].map(h => (
+                  <th key={h} className="table-header">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {loans.map((loan, i) => {
-                const { bg, color } = statusColor(loan.status)
-                return (
-                  <tr key={loan.id} style={{
-                    borderTop: '1px solid #334155',
-                    background: i % 2 === 0 ? 'transparent' : '#ffffff08'
-                  }}>
-                    <td style={{ padding: '1rem', fontWeight: '500' }}>
-                      {loan.member?.fullName ?? `Member #${loan.memberId}`}
-                    </td>
-                    <td style={{ padding: '1rem', color: '#4ade80' }}>
-                      KES {loan.principal?.toLocaleString()}
-                    </td>
-                    <td style={{ padding: '1rem', color: '#fbbf24' }}>
-                      KES {loan.flatFee?.toLocaleString()}
-                    </td>
-                    <td style={{ padding: '1rem', fontWeight: '600' }}>
-                      KES {loan.totalRepayable?.toLocaleString()}
-                    </td>
-                    <td style={{ padding: '1rem', color: '#94a3b8', fontSize: '0.875rem' }}>
-                      {loan.dueDate
-                        ? new Date(loan.dueDate).toLocaleDateString()
-                        : '—'}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{
-                        padding: '0.25rem 0.75rem', borderRadius: '9999px',
-                        fontSize: '0.75rem', fontWeight: '600',
-                        background: bg, color
-                      }}>
-                        {loan.status}
+            <tbody className="divide-y divide-gray-100">
+              {loans.map(loan => (
+                <tr key={loan.id}
+                  className="hover:bg-gray-50 transition-colors">
+                  <td className="table-cell">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-blue-100
+                        text-blue-600 flex items-center justify-center
+                        font-semibold text-xs flex-shrink-0">
+                        {loan.member?.fullName?.charAt(0) ?? '?'}
+                      </div>
+                      <span className="font-medium text-gray-900">
+                        {loan.member?.fullName ?? `Member #${loan.memberId}`}
                       </span>
-                    </td>
-                    <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
+                    </div>
+                  </td>
+                  <td className="table-cell font-semibold text-green-600">
+                    KES {loan.principal?.toLocaleString()}
+                  </td>
+                  <td className="table-cell text-amber-600">
+                    KES {loan.flatFee?.toLocaleString()}
+                  </td>
+                  <td className="table-cell font-bold text-gray-900">
+                    KES {loan.totalRepayable?.toLocaleString()}
+                  </td>
+                  <td className="table-cell text-gray-500 text-xs">
+                    {loan.dueDate
+                      ? new Date(loan.dueDate).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="table-cell">
+                    <span className={`badge ${statusStyle(loan.status)}`}>
+                      {loan.status}
+                    </span>
+                  </td>
+                  <td className="table-cell">
+                    <div className="flex gap-2">
                       {loan.status === 'Pending' && (
-                        <button
-                          onClick={() => approve(loan.id)}
-                          style={{
-                            padding: '0.375rem 0.75rem', background: '#15803d',
-                            border: 'none', borderRadius: '6px',
-                            color: 'white', cursor: 'pointer', fontSize: '0.75rem'
-                          }}
-                        >
+                        <button onClick={() => approve(loan.id)}
+                          className="text-xs font-semibold px-3 py-1.5
+                            bg-green-600 hover:bg-green-700 text-white
+                            rounded-lg border-none cursor-pointer
+                            transition-colors">
                           Approve
                         </button>
                       )}
                       {loan.status === 'Approved' && (
-                        <button
-                          onClick={() => disburse(loan.id)}
-                          style={{
-                            padding: '0.375rem 0.75rem', background: '#1d4ed8',
-                            border: 'none', borderRadius: '6px',
-                            color: 'white', cursor: 'pointer', fontSize: '0.75rem'
-                          }}
-                        >
+                        <button onClick={() => disburse(loan.id)}
+                          className="text-xs font-semibold px-3 py-1.5
+                            bg-blue-600 hover:bg-blue-700 text-white
+                            rounded-lg border-none cursor-pointer
+                            transition-colors">
                           Disburse
                         </button>
                       )}
                       {loan.status === 'Active' && (
-                        <span style={{ color: '#60a5fa', fontSize: '0.75rem' }}>
+                        <span className="text-xs text-blue-600 font-medium">
                           Active
                         </span>
                       )}
-                    </td>
-                  </tr>
-                )
-              })}
+                      {loan.status === 'Repaid' && (
+                        <span className="text-xs text-gray-400 font-medium">
+                          ✓ Repaid
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

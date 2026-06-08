@@ -2,25 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/auth/Login'
-import Register from './pages/auth/Register'
+import Register from './Pages/auth/Register'
 import ExecutiveDashboard from './pages/executive/ExecutiveDashboard'
 import MemberDashboard from './pages/member/MemberDashboard'
-
-
-// Placeholder pages — we'll build these next
-/*const MemberDashboard = () => (
-  <div className="min-h-screen bg-gray-950 text-white flex items-center
-    justify-center">
-    <h1 className="text-2xl">Member Dashboard — coming soon</h1>
-  </div>
-)*/
-
-/*const ExecutiveDashboard = () => (
-  <div className="min-h-screen bg-gray-950 text-white flex items-center
-    justify-center">
-    <h1 className="text-2xl">Executive Dashboard — coming soon</h1>
-  </div>
-)*/
+import logoutIcon from './assets/icons8-logout-50.png';
 
 export default function App() {
   return (

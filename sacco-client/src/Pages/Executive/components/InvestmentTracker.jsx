@@ -8,24 +8,28 @@ export default function InvestmentTracker({ activeCycle }) {
   const [returnsForm, setReturnsForm] = useState({})
   const [message, setMessage] = useState('')
   const [form, setForm] = useState({
-    projectName: '',
-    capitalAllocated: '',
-    notes: '',
+    projectName: '', capitalAllocated: '', notes: '',
   })
 
-  useEffect(() => {
-    if (activeCycle) fetchInvestments()
-    else setLoading(false)
-  }, [activeCycle])
-
   const fetchInvestments = async () => {
+    if (!activeCycle?.id) return
     try {
       const { data } = await api.get(`/investments/cycle/${activeCycle.id}`)
       setInvestments(data)
+    } catch (err) {
+      console.error(err)
     } finally {
       setLoading(false)
     }
   }
+  
+  useEffect(() => {
+    if (activeCycle) {
+      fetchInvestments()
+    } else {
+      setLoading(false)
+    }
+  }, [activeCycle])
 
   const handleCreate = async (e) => {
     e.preventDefault()
@@ -46,27 +50,24 @@ export default function InvestmentTracker({ activeCycle }) {
     }
   }
 
-  const handleUpdateReturns = async (investmentId) => {
-    const returns = returnsForm[investmentId]
+  const handleUpdateReturns = async (id) => {
+    const returns = returnsForm[id]
     if (!returns) return
-    setMessage('')
     try {
-      await api.patch(`/investments/${investmentId}/returns`,
+      await api.patch(`/investments/${id}/returns`,
         parseFloat(returns),
-        { headers: { 'Content-Type': 'application/json' } }
-      )
+        { headers: { 'Content-Type': 'application/json' } })
       await fetchInvestments()
-      setReturnsForm({ ...returnsForm, [investmentId]: '' })
+      setReturnsForm({ ...returnsForm, [id]: '' })
       setMessage('Returns updated successfully.')
     } catch (err) {
       setMessage(err.response?.data || 'Failed to update returns.')
     }
   }
 
-  const handleComplete = async (investmentId) => {
-    setMessage('')
+  const handleComplete = async (id) => {
     try {
-      await api.patch(`/investments/${investmentId}/complete`)
+      await api.patch(`/investments/${id}/complete`)
       await fetchInvestments()
       setMessage('Investment marked as completed.')
     } catch (err) {
@@ -74,299 +75,206 @@ export default function InvestmentTracker({ activeCycle }) {
     }
   }
 
-  const totalAllocated = investments.reduce(
-    (sum, i) => sum + i.capitalAllocated, 0)
-  const totalReturns = investments.reduce(
-    (sum, i) => sum + i.returnsGenerated, 0)
-  const netProfit = totalReturns - totalAllocated
-
-  const statusColor = (status) => {
-    const map = {
-      Active: { bg: '#1e3a5f', color: '#60a5fa' },
-      Completed: { bg: '#1a3a2a', color: '#4ade80' },
-      Cancelled: { bg: '#3b1a1a', color: '#f87171' },
-    }
-    return map[status] || { bg: '#1e293b', color: '#94a3b8' }
-  }
-
-  if (!activeCycle) return (
-    <p style={{ color: '#94a3b8' }}>
-      No active cycle. Create a cycle first.
-    </p>
+  const SkeletonTable = ({ rows = 6 }) => (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="h-10 bg-gray-200 rounded w-full animate-pulse" />
+      ))}
+    </div>
   )
 
+  const totalAllocated = investments.reduce((s, i) => s + (i.capitalAllocated || 0), 0)
+  const totalReturns = investments.reduce((s, i) => s + (i.returnsGenerated || 0), 0)
+  const netProfit = totalReturns - totalAllocated
+
+  const statusStyle = (status) => {
+    const map = {
+      Active:    'bg-blue-100 text-blue-700',
+      Completed: 'bg-green-100 text-green-700',
+      Cancelled: 'bg-red-100 text-red-700',
+    }
+    return map[status] || 'bg-gray-100 text-gray-600'
+  }
+
+  // 1. Guard check for no active cycle
+  if (!activeCycle) return (
+    <div className="card text-center py-16">
+      <p className="text-5xl mb-4">📈</p>
+      <p className="text-gray-900 font-semibold mb-2">No active cycle</p>
+      <p className="text-gray-500 text-sm">Create a cycle first.</p>
+    </div>
+  )
+
+  // 2. Guard check for loading states
   if (loading) return (
-    <p style={{ color: '#94a3b8' }}>Loading investments...</p>
+    <div>
+      <div className="page-header">
+        <div className="h-7 bg-gray-200 rounded w-32 animate-pulse" />
+      </div>
+      <SkeletonTable rows={6} />
+    </div>
   )
 
   return (
     <div>
-      {/* Header */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: '1.5rem'
-      }}>
-        <h2 style={{ margin: 0 }}>
-          Investment Tracker — {activeCycle.name}
-        </h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          style={{
-            padding: '0.75rem 1.5rem', background: '#2563eb',
-            border: 'none', borderRadius: '8px',
-            color: 'white', cursor: 'pointer', fontWeight: '600'
-          }}
-        >
+      <div className="page-header">
+        <div>
+          <h2 className="section-title">Projects</h2>
+          <p className="text-gray-500 text-sm mt-1">{activeCycle.name}</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary">
           {showForm ? 'Cancel' : '+ New Project'}
         </button>
       </div>
-
-      {/* Summary Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '1rem', marginBottom: '1.5rem'
-      }}>
-        {[
-          { label: 'Projects', value: investments.length, color: '#60a5fa' },
-          { label: 'Capital Deployed', value: `KES ${totalAllocated.toLocaleString()}`, color: '#f59e0b' },
-          { label: 'Returns Generated', value: `KES ${totalReturns.toLocaleString()}`, color: '#4ade80' },
-          { label: 'Net Profit', value: `KES ${netProfit.toLocaleString()}`,
-            color: netProfit >= 0 ? '#4ade80' : '#f87171' },
-        ].map(card => (
-          <div key={card.label} style={{
-            background: '#1e293b', borderRadius: '12px',
-            padding: '1.25rem', border: '1px solid #334155'
-          }}>
-            <p style={{ margin: '0 0 0.5rem', color: '#94a3b8', fontSize: '0.875rem' }}>
-              {card.label}
-            </p>
-            <p style={{ margin: 0, fontSize: '1.375rem',
-              fontWeight: 'bold', color: card.color }}>
-              {card.value}
-            </p>
-          </div>
-        ))}
-      </div>
+{/* Investment Summary — Soft Tinted Blocks */}
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  {[
+    { label: 'Projects',
+      value: investments.length,
+      bg: 'bg-blue-50 hover:bg-blue-100',
+      text: 'text-blue-900', lbl: 'text-blue-600' },
+    { label: 'Capital Deployed',
+      value: `KES ${totalAllocated.toLocaleString()}`,
+      bg: 'bg-amber-50 hover:bg-amber-100',
+      text: 'text-amber-900', lbl: 'text-amber-600' },
+    { label: 'Returns Generated',
+      value: `KES ${totalReturns.toLocaleString()}`,
+      bg: 'bg-emerald-50 hover:bg-emerald-100',
+      text: 'text-emerald-900', lbl: 'text-emerald-600' },
+    { label: 'Net Profit',
+      value: `${netProfit >= 0 ? '+' : ''}KES ${netProfit.toLocaleString()}`,
+      bg: netProfit >= 0
+        ? 'bg-green-50 hover:bg-green-100'
+        : 'bg-red-50 hover:bg-red-100',
+      text: netProfit >= 0 ? 'text-green-900' : 'text-red-900',
+      lbl: netProfit >= 0 ? 'text-green-600' : 'text-red-600' },
+  ].map(card => (
+    <div key={card.label}
+      className={`p-5 rounded-2xl transition-colors duration-200 
+        cursor-default ${card.bg}`}>
+      <p className={`text-sm font-medium mb-1 ${card.lbl}`}>
+        {card.label}
+      </p>
+      <p className={`text-2xl font-bold ${card.text}`}>
+        {card.value}
+      </p>
+    </div>
+  ))}
+</div>
 
       {message && (
-        <p style={{
-          color: message.includes('success') ? '#4ade80' : '#f87171',
-          marginBottom: '1rem'
-        }}>
+        <div className={`mb-4 p-4 rounded-xl text-sm border ${
+          message.includes('success') || message.includes('completed') || message.includes('updated')
+            ? 'bg-green-50 border-green-200 text-green-700'
+            : 'bg-red-50 border-red-200 text-red-700'
+        }`}>
           {message}
-        </p>
+        </div>
       )}
 
-      {/* New Project Form */}
+      {/* New project form */}
       {showForm && (
-        <div style={{
-          background: '#1e293b', borderRadius: '12px',
-          padding: '1.5rem', marginBottom: '1.5rem',
-          border: '1px solid #334155'
-        }}>
-          <h3 style={{ marginTop: 0 }}>New Investment Project</h3>
-          <form onSubmit={handleCreate}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '1rem', marginBottom: '1rem'
-            }}>
+        <div className="card mb-6">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">New Investment Project</h3>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label style={{
-                  display: 'block', marginBottom: '0.5rem',
-                  fontSize: '0.875rem', color: '#94a3b8'
-                }}>
-                  Project Name
-                </label>
-                <input
-                  type="text"
+                <label className="label">Project Name</label>
+                <input type="text"
                   placeholder="e.g. Bulk Maize Purchase"
                   value={form.projectName}
                   onChange={e => setForm({ ...form, projectName: e.target.value })}
-                  required
-                  style={{
-                    width: '100%', padding: '0.75rem',
-                    background: '#0f172a', border: '1px solid #475569',
-                    borderRadius: '6px', color: 'white',
-                    fontSize: '0.875rem', boxSizing: 'border-box'
-                  }}
-                />
+                  className="input-field" required />
               </div>
               <div>
-                <label style={{
-                  display: 'block', marginBottom: '0.5rem',
-                  fontSize: '0.875rem', color: '#94a3b8'
-                }}>
-                  Capital to Allocate (KES)
-                </label>
-                <input
-                  type="number"
-                  placeholder="5000"
+                <label className="label">Capital to Allocate (KES)</label>
+                <input type="number" placeholder="5000"
                   value={form.capitalAllocated}
                   onChange={e => setForm({ ...form, capitalAllocated: e.target.value })}
-                  required
-                  style={{
-                    width: '100%', padding: '0.75rem',
-                    background: '#0f172a', border: '1px solid #475569',
-                    borderRadius: '6px', color: 'white',
-                    fontSize: '0.875rem', boxSizing: 'border-box'
-                  }}
-                />
+                  className="input-field" required />
               </div>
             </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{
-                display: 'block', marginBottom: '0.5rem',
-                fontSize: '0.875rem', color: '#94a3b8'
-              }}>
-                Notes
-              </label>
+            <div>
+              <label className="label">Notes</label>
               <textarea
                 placeholder="Describe the project, expected returns, timeline..."
                 value={form.notes}
                 onChange={e => setForm({ ...form, notes: e.target.value })}
                 rows={3}
-                style={{
-                  width: '100%', padding: '0.75rem',
-                  background: '#0f172a', border: '1px solid #475569',
-                  borderRadius: '6px', color: 'white',
-                  fontSize: '0.875rem', boxSizing: 'border-box',
-                  resize: 'vertical'
-                }}
+                className="input-field resize-none"
               />
             </div>
-            <button
-              type="submit"
-              style={{
-                padding: '0.75rem 1.5rem', background: '#2563eb',
-                border: 'none', borderRadius: '8px',
-                color: 'white', cursor: 'pointer', fontWeight: '600'
-              }}
-            >
-              Create Project
-            </button>
+            <button type="submit" className="btn-primary">Create Project</button>
           </form>
         </div>
       )}
 
-      {/* Investments Table */}
+      {/* Projects list */}
       {investments.length === 0 ? (
-        <div style={{
-          background: '#1e293b', borderRadius: '12px',
-          padding: '3rem', textAlign: 'center',
-          border: '1px solid #334155', color: '#94a3b8'
-        }}>
-          No investment projects yet for this cycle.
-          Click <strong style={{ color: 'white' }}>+ New Project</strong> to allocate funds.
+        <div className="card text-center py-16">
+          <p className="text-5xl mb-4">💼</p>
+          <p className="text-gray-900 font-semibold mb-2">No projects yet</p>
+          <p className="text-gray-500 text-sm">
+            Click <strong>+ New Project</strong> to allocate funds.
+          </p>
         </div>
       ) : (
-        <div style={{
-          background: '#1e293b', borderRadius: '12px',
-          border: '1px solid #334155', overflow: 'hidden'
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#0f172a' }}>
-                {['Project', 'Capital', 'Returns', 'Net', 'Status', 'Notes', 'Actions'].map(h => (
-                  <th key={h} style={{
-                    padding: '1rem', textAlign: 'left',
-                    fontSize: '0.75rem', color: '#94a3b8',
-                    textTransform: 'uppercase', letterSpacing: '0.05em'
-                  }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {investments.map((inv, i) => {
-                const { bg, color } = statusColor(inv.status)
-                const net = inv.returnsGenerated - inv.capitalAllocated
-                return (
-                  <tr key={inv.id} style={{
-                    borderTop: '1px solid #334155',
-                    background: i % 2 === 0 ? 'transparent' : '#ffffff08'
-                  }}>
-                    <td style={{ padding: '1rem', fontWeight: '600' }}>
-                      {inv.projectName}
-                    </td>
-                    <td style={{ padding: '1rem', color: '#f59e0b' }}>
-                      KES {inv.capitalAllocated?.toLocaleString()}
-                    </td>
-                    <td style={{ padding: '1rem', color: '#4ade80' }}>
-                      KES {inv.returnsGenerated?.toLocaleString()}
-                    </td>
-                    <td style={{
-                      padding: '1rem', fontWeight: '600',
-                      color: net >= 0 ? '#4ade80' : '#f87171'
-                    }}>
-                      {net >= 0 ? '+' : ''}KES {net.toLocaleString()}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{
-                        padding: '0.25rem 0.75rem', borderRadius: '9999px',
-                        fontSize: '0.75rem', fontWeight: '600',
-                        background: bg, color
-                      }}>
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td style={{
-                      padding: '1rem', color: '#94a3b8',
-                      fontSize: '0.875rem', maxWidth: '200px'
-                    }}>
-                      {inv.notes || '—'}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      {inv.status === 'Active' && (
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                          <input
-                            type="number"
-                            placeholder="Returns"
-                            value={returnsForm[inv.id] || ''}
-                            onChange={e => setReturnsForm({
-                              ...returnsForm, [inv.id]: e.target.value
-                            })}
-                            style={{
-                              width: '90px', padding: '0.375rem 0.5rem',
-                              background: '#0f172a', border: '1px solid #475569',
-                              borderRadius: '6px', color: 'white', fontSize: '0.75rem'
-                            }}
-                          />
-                          <button
-                            onClick={() => handleUpdateReturns(inv.id)}
-                            style={{
-                              padding: '0.375rem 0.75rem', background: '#2563eb',
-                              border: 'none', borderRadius: '6px',
-                              color: 'white', cursor: 'pointer', fontSize: '0.75rem'
-                            }}
-                          >
-                            Update
-                          </button>
-                          <button
-                            onClick={() => handleComplete(inv.id)}
-                            style={{
-                              padding: '0.375rem 0.75rem', background: '#15803d',
-                              border: 'none', borderRadius: '6px',
-                              color: 'white', cursor: 'pointer', fontSize: '0.75rem'
-                            }}
-                          >
-                            Complete
-                          </button>
-                        </div>
-                      )}
-                      {inv.status === 'Completed' && (
-                        <span style={{ color: '#4ade80', fontSize: '0.75rem' }}>
-                          ✓ Completed
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-4">
+          {investments.map(inv => {
+            const net = (inv.returnsGenerated || 0) - (inv.capitalAllocated || 0)
+            return (
+              <div key={inv.id} className="card">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 text-base">{inv.projectName}</h3>
+                    <p className="text-gray-500 text-xs mt-0.5">
+                      Started {new Date(inv.investmentDate).toLocaleDateString()}
+                      {inv.completedDate && ` — Completed ${new Date(inv.completedDate).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                  <span className={`badge ${statusStyle(inv.status)}`}>{inv.status}</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {[
+                    { label: 'Capital In', value: `KES ${inv.capitalAllocated?.toLocaleString()}`, color: 'text-amber-600' },
+                    { label: 'Returns Out', value: `KES ${inv.returnsGenerated?.toLocaleString()}`, color: 'text-green-600' },
+                    { label: 'Net', value: `${net >= 0 ? '+' : ''}KES ${net.toLocaleString()}`, color: net >= 0 ? 'text-green-600' : 'text-red-600' },
+                  ].map(item => (
+                    <div key={item.label} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                      <p className="text-xs text-gray-500 mb-1">{item.label}</p>
+                      <p className={`font-bold text-sm ${item.color}`}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {inv.notes && (
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 mb-4">
+                    <p className="text-xs text-gray-500 mb-1">Notes</p>
+                    <p className="text-sm text-gray-700">{inv.notes}</p>
+                  </div>
+                )}
+
+                {inv.status === 'Active' && (
+                  <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
+                    <input
+                      type="number"
+                      placeholder="Enter returns amount"
+                      value={returnsForm[inv.id] || ''}
+                      onChange={e => setReturnsForm({ ...returnsForm, [inv.id]: e.target.value })}
+                      className="input-field max-w-xs"
+                    />
+                    <button onClick={() => handleUpdateReturns(inv.id)} className="btn-primary whitespace-nowrap">
+                      Update Returns
+                    </button>
+                    <button onClick={() => handleComplete(inv.id)} className="btn-success whitespace-nowrap">
+                      Mark Complete
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

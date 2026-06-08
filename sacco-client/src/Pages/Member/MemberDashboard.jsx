@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../api/axios'
+import DashboardLayout from '../../components/DashboardLayout'
 import HallOfFame from '../HallOfFame'
+import Constitution from '../Constitution'
+
+const memberTabs = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'contributions', label: 'Contributions' },
+  { id: 'loans', label: 'My Loans' },
+  { id: 'investments', label: 'Investments'},
+  { id: 'halloffame', label: 'Hall of Fame' },
+  { id: 'constitution', label: 'Constitution' },
+]
 
 export default function MemberDashboard() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('overview')
   const [activeCycle, setActiveCycle] = useState(null)
   const [contributions, setContributions] = useState([])
@@ -18,33 +29,27 @@ export default function MemberDashboard() {
   const [loanMessage, setLoanMessage] = useState('')
   const [loanLoading, setLoanLoading] = useState(false)
 
-  useEffect(() => {
-    fetchAll()
-  }, [])
+  useEffect(() => { fetchAll() }, [])
 
   const fetchAll = async () => {
     try {
       const { data: cycle } = await api.get('/cycles/active')
       setActiveCycle(cycle)
 
-      const { data: contribs } = await api.get(
-        `/contributions/member/${user.memberId}`)
-      setContributions(contribs)
+      const [contribRes, streakRes, loansRes, invRes, sumRes] =
+        await Promise.all([
+          api.get(`/contributions/member/${user.memberId}`),
+          api.get(`/contributions/member/${user.memberId}/streak`),
+          api.get(`/loans/member/${user.memberId}`),
+          api.get(`/investments/cycle/${cycle.id}`),
+          api.get(`/cycles/${cycle.id}/summary`),
+        ])
 
-      const { data: streakData } = await api.get(
-        `/contributions/member/${user.memberId}/streak`)
-      setStreak(streakData.currentStreak)
-
-      const { data: myLoans } = await api.get(
-        `/loans/member/${user.memberId}`)
-      setLoans(myLoans)
-
-      const { data: invData } = await api.get(
-        `/investments/cycle/${cycle.id}`)
-      setInvestments(invData)
-
-      const { data: sum } = await api.get(`/cycles/${cycle.id}/summary`)
-      setSummary(sum)
+      setContributions(contribRes.data)
+      setStreak(streakRes.data.currentStreak)
+      setLoans(loansRes.data)
+      setInvestments(invRes.data)
+      setSummary(sumRes.data)
     } catch {
       // No active cycle is fine
     } finally {
@@ -81,711 +86,562 @@ export default function MemberDashboard() {
   const activeLoan = loans.find(l =>
     l.status === 'Active' || l.status === 'Approved' || l.status === 'Pending')
 
-  const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'contributions', label: 'Contributions' },
-    { id: 'loans', label: 'My Loans' },
-    { id: 'investments', label: 'Investments' },
-    { id: 'hall-of-fame', label: '🏆 Hall of Fame' },
-  ]
-
   const statusColor = (status) => {
     const map = {
-      Pending: { bg: '#3b2800', color: '#fbbf24' },
-      Approved: { bg: '#1a3a2a', color: '#4ade80' },
-      Active: { bg: '#1e3a5f', color: '#60a5fa' },
-      Repaid: { bg: '#1e293b', color: '#94a3b8' },
-      Defaulted: { bg: '#3b1a1a', color: '#f87171' },
+      Pending:  'bg-amber-100 text-amber-700',
+      Approved: 'bg-green-100 text-green-700',
+      Active:   'bg-blue-100 text-blue-700',
+      Repaid:   'bg-gray-100 text-gray-600',
+      Defaulted:'bg-red-100 text-red-700',
     }
-    return map[status] || { bg: '#1e293b', color: '#94a3b8' }
+    return map[status] || 'bg-gray-100 text-gray-600'
   }
 
   if (loading) return (
-    <div style={{
-      minHeight: '100vh', background: '#0f172a',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#94a3b8'
-    }}>
-      Loading your dashboard...
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+    <div className="flex flex-col items-center space-y-4">
+    <div className="relative w-12 h-12">
+    <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+    <div className="absolute inset-0 border-4 border-t-emerald-600 rounded-full animate-spin"></div>
     </div>
+    <p className="text-sm font-semibold text-gray-500 tracking wide uppercase animate-pulse">
+     Securing Connection & loading dashboard...
+     </p>
+     </div>
+     </div>
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f172a', color: 'white' }}>
+    <DashboardLayout
+      tabs={memberTabs}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      activeCycle={activeCycle}
+    >
 
-      {/* Header */}
-      <div style={{
-        background: '#1e293b', borderBottom: '1px solid #334155',
-        padding: '1rem 2rem', display: 'flex',
-        justifyContent: 'space-between', alignItems: 'center'
-      }}>
+      {/* ── OVERVIEW TAB ── */}
+      {activeTab === 'overview' && (
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold' }}>
-            Circle of Support
-          </h1>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8' }}>
-            Member Dashboard
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
-            {user?.fullName}
-          </span>
-          <button
-            onClick={logout}
-            style={{
-              padding: '0.5rem 1rem', background: '#dc2626',
-              border: 'none', borderRadius: '6px',
-              color: 'white', cursor: 'pointer', fontSize: '0.875rem'
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </div>
+          {/* Welcome banner */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 
+            rounded-2xl p-6 mb-6 text-white shadow-lg">
+            <p className="text-blue-100 text-sm mb-1">Welcome back</p>
+            <h2 className="text-2xl font-bold">
+              {user?.fullName?.split(' ')[0]} 👋
+            </h2>
+            {activeCycle && (
+              <p className="text-blue-100 text-sm mt-2">
+                Active in <strong className="text-white">
+                  {activeCycle.name}
+                </strong> — Weekly contribution:{' '}
+                <strong className="text-white">
+                  KES {activeCycle.weeklyContributionAmount?.toLocaleString()}
+                </strong>
+              </p>
+            )}
+          </div>
 
-      {/* Cycle Banner */}
-      {activeCycle ? (
-        <div style={{
-          background: '#166534', padding: '0.75rem 2rem',
-          fontSize: '0.875rem'
-        }}>
-          Active Cycle: <strong>{activeCycle.name}</strong> —
-          Weekly contribution: <strong>
-            KES {activeCycle.weeklyContributionAmount?.toLocaleString()}
-          </strong>
-        </div>
-      ) : (
-        <div style={{
-          background: '#7f1d1d', padding: '0.75rem 2rem',
-          fontSize: '0.875rem'
-        }}>
-          No active cycle at the moment.
+          {/* Personal stat cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[
+              {
+                label: 'Total Contributed',
+                value: `KES ${totalContributed.toLocaleString()}`,
+              
+               color: 'text-green-600',
+                bg: 'bg-green-50', border: 'border-green-200'
+              },
+              {
+                label: 'Payment Streak',
+                value: `${streak} week${streak !== 1 ? 's' : ''}`,
+                color: 'text-amber-600',
+                bg: 'bg-amber-50', border: 'border-amber-200'
+              },
+              {
+                label: 'Active Loan',
+                value: activeLoan
+                  ? `KES ${activeLoan.totalRepayable?.toLocaleString()}`
+                  : 'None',
+                color: activeLoan ? 'text-blue-600' : 'text-gray-400',
+                bg: 'bg-blue-50', border: 'border-blue-200'
+              },
+              {
+                label: 'My Role',
+                value: user?.role,
+                color: 'text-purple-600',
+                bg: 'bg-purple-50', border: 'border-purple-200'
+              },
+            ].map(card => (
+              <div key={card.label}
+                className={`stat-card border ${card.border}`}>
+                <div className={`inline-flex items-center justify-center 
+                  w-10 h-10 ${card.bg} rounded-lg text-xl mb-3`}>
+                  {card.icon}
+                </div>
+                <p className="text-xs text-gray-500 mb-1">{card.label}</p>
+                <p className={`text-lg font-bold ${card.color}`}>
+                  {card.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Group pool summary */}
+          {summary && (
+            <div className="card mb-6">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase 
+                tracking-wider mb-4">
+                Group Pool — {summary.cycleName}
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Total Contributions',
+                    value: summary.totalContributions, color: 'text-green-600' },
+                  { label: 'Loans Issued',
+                    value: summary.totalLoansIssued, color: 'text-amber-600' },
+                  { label: 'Interest Earned',
+                    value: summary.totalInterestEarned, color: 'text-blue-600' },
+                  { label: 'Pool Balance',
+                    value: summary.poolBalance, color: 'text-green-600' },
+                ].map(item => (
+                  <div key={item.label}
+                    className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p className="text-xs text-gray-500 mb-1">{item.label}</p>
+                    <p className={`text-base font-bold ${item.color}`}>
+                      KES {item.value?.toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Active loan card */}
+          {activeLoan && (
+            <div className="card border-l-4 border-l-blue-500">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="font-semibold text-gray-900">
+                  Your Active Loan
+                </h3>
+                <span className={`badge ${statusColor(activeLoan.status)}`}>
+                  {activeLoan.status}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Principal',
+                    value: `KES ${activeLoan.principal?.toLocaleString()}` },
+                  { label: 'Flat Fee (10%)',
+                    value: `KES ${activeLoan.flatFee?.toLocaleString()}` },
+                  { label: 'Total Repayable',
+                    value: `KES ${activeLoan.totalRepayable?.toLocaleString()}` },
+                  { label: 'Due Date',
+                    value: activeLoan.dueDate
+                      ? new Date(activeLoan.dueDate).toLocaleDateString()
+                      : 'TBD' },
+                ].map(item => (
+                  <div key={item.label}>
+                    <p className="text-xs text-gray-500 mb-1">{item.label}</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={{
-        background: '#1e293b', borderBottom: '1px solid #334155',
-        padding: '0 2rem', display: 'flex'
-      }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '1rem 1.5rem', border: 'none', cursor: 'pointer',
-              background: 'transparent', fontSize: '0.875rem',
-              color: activeTab === tab.id ? '#3b82f6' : '#94a3b8',
-              borderBottom: activeTab === tab.id
-                ? '2px solid #3b82f6' : '2px solid transparent',
-              fontWeight: activeTab === tab.id ? '600' : '400'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* ── CONTRIBUTIONS TAB ── */}
+      {activeTab === 'contributions' && (
+        <div>
+          <div className="page-header">
+            <div>
+              <h2 className="section-title">My Contributions</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                Your payment history across all cycles
+              </p>
+            </div>
+            <div className="flex items-center gap-2 bg-amber-50 border 
+              border-amber-200 rounded-xl px-4 py-2.5">
+              
+              <div>
+                <p className="text-xs text-amber-600">Current Streak</p>
+                <p className="text-sm font-bold text-amber-700">
+                  {streak} week{streak !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          </div>
 
-      {/* Content */}
-      <div style={{ padding: '2rem' }}>
+          {contributions.length === 0 ? (
+            <div className="card text-center py-16">
+              
+              <p className="text-gray-900 font-semibold mb-2">
+                No contributions yet
+              </p>
+              <p className="text-gray-500 text-sm">
+                Your payment history will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="card p-0 overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="table-header">Cycle</th>
+                    <th className="table-header">Week</th>
+                    <th className="table-header">Amount</th>
+                    <th className="table-header">Status</th>
+                    <th className="table-header">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {contributions.map(c => (
+                    <tr key={c.id}
+                      className="hover:bg-gray-50 transition-colors">
+                      <td className="table-cell text-gray-500 text-xs">
+                        {c.cycle?.name ?? `Cycle #${c.cycleId}`}
+                      </td>
+                      <td className="table-cell font-medium">
+                        Week {c.weekNumber}
+                      </td>
+                      <td className="table-cell font-semibold text-green-600">
+                        KES {c.amount?.toLocaleString()}
+                      </td>
+                      <td className="table-cell">
+                        <span className={`badge ${
+                          c.status === 'Paid'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {c.status === 'Paid' ? '✓ Paid' : c.status}
+                        </span>
+                      </td>
+                      <td className="table-cell text-gray-500 text-xs">
+                        {new Date(c.dateRecorded).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* ── OVERVIEW TAB ── */}
-        {activeTab === 'overview' && (
-          <div>
-            <h2 style={{ marginTop: 0 }}>
-              Welcome back, {user?.fullName?.split(' ')[0]} 👋
-            </h2>
+      {/* ── LOANS TAB ── */}
+      {activeTab === 'loans' && (
+        <div>
+          <div className="page-header">
+            <div>
+              <h2 className="section-title">My Loans</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                Your loan history and requests
+              </p>
+            </div>
+            {activeCycle && !activeLoan && (
+              <button
+                onClick={() => setShowLoanForm(!showLoanForm)}
+                className="btn-primary"
+              >
+                {showLoanForm ? 'Cancel' : '+ Request Loan'}
+              </button>
+            )}
+          </div>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '1rem', marginBottom: '2rem'
-            }}>
+          {loanMessage && (
+            <div className={`mb-4 p-4 rounded-xl text-sm border ${
+              loanMessage.includes('submitted')
+                ? 'bg-green-50 border-green-200 text-green-700'
+                : 'bg-red-50 border-red-200 text-red-700'
+            }`}>
+              {loanMessage}
+            </div>
+          )}
+
+          {/* Loan request form */}
+          {showLoanForm && (
+            <div className="card mb-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-1">
+                Request a Loan
+              </h3>
+              <p className="text-gray-500 text-sm mb-4">
+                Max:{' '}
+                <strong className="text-gray-900">
+                  KES {activeCycle?.maxLoanAmount?.toLocaleString()}
+                </strong>
+                . A 10% flat fee applies. Executives will review your request.
+              </p>
+              <form onSubmit={handleLoanRequest}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="label">Amount (KES)</label>
+                    <input
+                      type="number"
+                      placeholder={`Max KES ${activeCycle?.maxLoanAmount?.toLocaleString()}`}
+                      value={loanForm.principal}
+                      onChange={e => setLoanForm({
+                        ...loanForm, principal: e.target.value })}
+                      className="input-field" required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Repayment Period (weeks)</label>
+                    <input
+                      type="number" placeholder="e.g. 4"
+                      min="1" max="52"
+                      value={loanForm.repaymentWeeks}
+                      onChange={e => setLoanForm({
+                        ...loanForm, repaymentWeeks: e.target.value })}
+                      className="input-field" required
+                    />
+                  </div>
+                </div>
+
+                {/* Live fee preview */}
+                {loanForm.principal && (
+                  <div className="bg-blue-50 border border-blue-200 
+                    rounded-xl p-4 mb-4 flex flex-wrap gap-4 text-sm">
+                    <div>
+                      <p className="text-blue-600 text-xs mb-0.5">
+                        You receive
+                      </p>
+                      <p className="font-bold text-blue-900">
+                        KES {parseFloat(loanForm.principal).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600 text-xs mb-0.5">
+                        Fee (10%)
+                      </p>
+                      <p className="font-bold text-amber-700">
+                        KES {(parseFloat(loanForm.principal) * 0.1)
+                          .toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600 text-xs mb-0.5">
+                        You repay
+                      </p>
+                      <p className="font-bold text-green-700">
+                        KES {(parseFloat(loanForm.principal) * 1.1)
+                          .toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <button type="submit" disabled={loanLoading}
+                  className="btn-primary">
+                  {loanLoading ? 'Submitting...' : 'Submit Request'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Loans table */}
+          {loans.length === 0 ? (
+            <div className="card text-center py-16">
+              
+              <p className="text-gray-900 font-semibold mb-2">
+                No loan history yet
+              </p>
+              {activeCycle && !activeLoan && (
+                <p className="text-gray-500 text-sm">
+                  Click <strong>+ Request Loan</strong> to apply.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="card p-0 overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    {['Principal', 'Fee', 'Total', 'Weeks',
+                      'Due Date', 'Status', 'Requested'].map(h => (
+                      <th key={h} className="table-header">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {loans.map(loan => (
+                    <tr key={loan.id}
+                      className="hover:bg-gray-50 transition-colors">
+                      <td className="table-cell font-semibold text-green-600">
+                        KES {loan.principal?.toLocaleString()}
+                      </td>
+                      <td className="table-cell text-amber-600">
+                        KES {loan.flatFee?.toLocaleString()}
+                      </td>
+                      <td className="table-cell font-bold text-gray-900">
+                        KES {loan.totalRepayable?.toLocaleString()}
+                      </td>
+                      <td className="table-cell text-gray-500">
+                        {loan.repaymentWeeks}w
+                      </td>
+                      <td className="table-cell text-gray-500 text-xs">
+                        {loan.dueDate
+                          ? new Date(loan.dueDate).toLocaleDateString()
+                          : '—'}
+                      </td>
+                      <td className="table-cell">
+                        <span className={`badge ${statusColor(loan.status)}`}>
+                          {loan.status}
+                        </span>
+                      </td>
+                      <td className="table-cell text-gray-500 text-xs">
+                        {new Date(loan.requestedAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── INVESTMENTS TAB ── */}
+      {activeTab === 'investments' && (
+        <div>
+          <div className="page-header">
+            <div>
+              <h2 className="section-title">Group Investments</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                See where the group's money is working
+              </p>
+            </div>
+            {activeCycle && (
+              <span className="bg-gray-100 border border-gray-200 
+                text-gray-600 text-xs font-medium px-3 py-1.5 rounded-lg">
+                {activeCycle.name}
+              </span>
+            )}
+          </div>
+
+          {/* Investment summary cards */}
+          {investments.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {[
-                { label: 'Total Contributed',
-                  value: `KES ${totalContributed.toLocaleString()}`,
-                  color: '#4ade80' },
-                { label: 'Payment Streak',
-                  value: `${streak} week${streak !== 1 ? 's' : ''}`,
-                  color: '#f59e0b' },
-                { label: 'Active Loan',
-                  value: activeLoan
-                    ? `KES ${activeLoan.totalRepayable?.toLocaleString()}`
-                    : 'None',
-                  color: activeLoan ? '#60a5fa' : '#94a3b8' },
-                { label: 'My Role', value: user?.role, color: '#a855f7' },
+                { label: 'Active Projects',
+                  value: investments.filter(i => i.status === 'Active').length,
+                  color: 'text-blue-600' },
+                { label: 'Capital Deployed',
+                  value: `KES ${investments.reduce(
+                    (s, i) => s + i.capitalAllocated, 0).toLocaleString()}`,
+                  color: 'text-amber-600' },
+                { label: 'Returns Generated',
+                  value: `KES ${investments.reduce(
+                    (s, i) => s + i.returnsGenerated, 0).toLocaleString()}`,
+                  color: 'text-green-600'},
+                { label: 'Net Profit',
+                  value: (() => {
+                    const net = investments.reduce(
+                      (s, i) => s + i.returnsGenerated - i.capitalAllocated, 0)
+                    return `${net >= 0 ? '+' : ''}KES ${net.toLocaleString()}`
+                  })(),
+                  color: investments.reduce(
+                    (s, i) => s + i.returnsGenerated - i.capitalAllocated,
+                    0) >= 0 ? 'text-green-600' : 'text-red-600'
+                 },
               ].map(card => (
-                <div key={card.label} style={{
-                  background: '#1e293b', borderRadius: '12px',
-                  padding: '1.25rem', border: '1px solid #334155'
-                }}>
-                  <p style={{ margin: '0 0 0.5rem',
-                    color: '#94a3b8', fontSize: '0.875rem' }}>
-                    {card.label}
-                  </p>
-                  <p style={{ margin: 0, fontSize: '1.375rem',
-                    fontWeight: 'bold', color: card.color }}>
+                <div key={card.label} className="stat-card">
+                  <p className="text-2xl mb-2">{card.icon}</p>
+                  <p className="text-xs text-gray-500 mb-1">{card.label}</p>
+                  <p className={`text-lg font-bold ${card.color}`}>
                     {card.value}
                   </p>
                 </div>
               ))}
             </div>
+          )}
 
-            {summary && (
-              <div style={{
-                background: '#1e293b', borderRadius: '12px',
-                padding: '1.5rem', border: '1px solid #334155',
-                marginBottom: '2rem'
-              }}>
-                <h3 style={{ marginTop: 0, color: '#94a3b8',
-                  fontSize: '0.875rem', textTransform: 'uppercase',
-                  letterSpacing: '0.05em' }}>
-                  Group Pool — {summary.cycleName}
-                </h3>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                  gap: '1rem'
-                }}>
-                  {[
-                    { label: 'Total Contributions',
-                      value: summary.totalContributions, color: '#4ade80' },
-                    { label: 'Loans Issued',
-                      value: summary.totalLoansIssued, color: '#f59e0b' },
-                    { label: 'Interest Earned',
-                      value: summary.totalInterestEarned, color: '#60a5fa' },
-                    { label: 'Pool Balance',
-                      value: summary.poolBalance, color: '#4ade80' },
-                  ].map(item => (
-                    <div key={item.label}>
-                      <p style={{ margin: '0 0 0.25rem',
-                        color: '#64748b', fontSize: '0.75rem' }}>
-                        {item.label}
-                      </p>
-                      <p style={{ margin: 0, fontWeight: '600', color: item.color }}>
-                        KES {item.value?.toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeLoan && (
-              <div style={{
-                background: '#1e293b', borderRadius: '12px',
-                padding: '1.5rem', border: '1px solid #3b82f6',
-                marginBottom: '2rem'
-              }}>
-                <h3 style={{ marginTop: 0 }}>Your Active Loan</h3>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                  gap: '1rem', marginBottom: '1rem'
-                }}>
-                  {[
-                    { label: 'Principal',
-                      value: `KES ${activeLoan.principal?.toLocaleString()}` },
-                    { label: 'Flat Fee',
-                      value: `KES ${activeLoan.flatFee?.toLocaleString()}` },
-                    { label: 'Total Repayable',
-                      value: `KES ${activeLoan.totalRepayable?.toLocaleString()}` },
-                    { label: 'Due Date', value: activeLoan.dueDate
-                      ? new Date(activeLoan.dueDate).toLocaleDateString()
-                      : 'TBD' },
-                  ].map(item => (
-                    <div key={item.label}>
-                      <p style={{ margin: '0 0 0.25rem',
-                        color: '#64748b', fontSize: '0.75rem' }}>
-                        {item.label}
-                      </p>
-                      <p style={{ margin: 0, fontWeight: '600' }}>{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-                <span style={{
-                  padding: '0.25rem 0.75rem', borderRadius: '9999px',
-                  fontSize: '0.75rem', fontWeight: '600',
-                  ...statusColor(activeLoan.status)
-                }}>
-                  {activeLoan.status}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'halloffame' && <HallOfFame />}
-
-        {/* ── CONTRIBUTIONS TAB ── */}
-        {activeTab === 'contributions' && (
-          <div>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center', marginBottom: '1.5rem'
-            }}>
-              <h2 style={{ margin: 0 }}>My Contributions</h2>
-              <div style={{
-                background: '#1e293b', borderRadius: '8px',
-                padding: '0.5rem 1rem', border: '1px solid #334155',
-                fontSize: '0.875rem'
-              }}>
-                🔥 Streak: <strong style={{ color: '#f59e0b' }}>
-                  {streak} week{streak !== 1 ? 's' : ''}
-                </strong>
-              </div>
-            </div>
-
-            {contributions.length === 0 ? (
-              <p style={{ color: '#94a3b8' }}>No contributions recorded yet.</p>
-            ) : (
-              <div style={{
-                background: '#1e293b', borderRadius: '12px',
-                border: '1px solid #334155', overflow: 'hidden'
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#0f172a' }}>
-                      {['Cycle', 'Week', 'Amount', 'Status', 'Date'].map(h => (
-                        <th key={h} style={{
-                          padding: '1rem', textAlign: 'left',
-                          fontSize: '0.75rem', color: '#94a3b8',
-                          textTransform: 'uppercase', letterSpacing: '0.05em'
-                        }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contributions.map((c, i) => (
-                      <tr key={c.id} style={{
-                        borderTop: '1px solid #334155',
-                        background: i % 2 === 0 ? 'transparent' : '#ffffff08'
-                      }}>
-                        <td style={{ padding: '1rem', color: '#94a3b8',
-                          fontSize: '0.875rem' }}>
-                          {c.cycle?.name ?? `Cycle #${c.cycleId}`}
-                        </td>
-                        <td style={{ padding: '1rem' }}>Week {c.weekNumber}</td>
-                        <td style={{ padding: '1rem', color: '#4ade80',
-                          fontWeight: '600' }}>
-                          KES {c.amount?.toLocaleString()}
-                        </td>
-                        <td style={{ padding: '1rem' }}>
-                          <span style={{
-                            padding: '0.25rem 0.75rem', borderRadius: '9999px',
-                            fontSize: '0.75rem', fontWeight: '600',
-                            background: c.status === 'Paid' ? '#1a3a2a' : '#3b1a1a',
-                            color: c.status === 'Paid' ? '#4ade80' : '#f87171'
-                          }}>
-                            {c.status === 'Paid' ? '✓ Paid' : c.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '1rem', color: '#94a3b8',
-                          fontSize: '0.875rem' }}>
-                          {new Date(c.dateRecorded).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── LOANS TAB ── */}
-        {activeTab === 'loans' && (
-          <div>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center', marginBottom: '1.5rem'
-            }}>
-              <h2 style={{ margin: 0 }}>My Loans</h2>
-              {activeCycle && !activeLoan && (
-                <button
-                  onClick={() => setShowLoanForm(!showLoanForm)}
-                  style={{
-                    padding: '0.75rem 1.5rem', background: '#2563eb',
-                    border: 'none', borderRadius: '8px',
-                    color: 'white', cursor: 'pointer', fontWeight: '600'
-                  }}
-                >
-                  {showLoanForm ? 'Cancel' : '+ Request Loan'}
-                </button>
-              )}
-            </div>
-
-            {loanMessage && (
-              <p style={{
-                color: loanMessage.includes('submitted') ? '#4ade80' : '#f87171',
-                marginBottom: '1rem'
-              }}>
-                {loanMessage}
+          {investments.length === 0 ? (
+            <div className="card text-center py-16">
+              
+              <p className="text-gray-900 font-semibold mb-2">
+                No investment projects yet
               </p>
-            )}
-
-            {showLoanForm && (
-              <div style={{
-                background: '#1e293b', borderRadius: '12px',
-                padding: '1.5rem', marginBottom: '1.5rem',
-                border: '1px solid #334155'
-              }}>
-                <h3 style={{ marginTop: 0 }}>Request a Loan</h3>
-                <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: 0 }}>
-                  Max loan amount: <strong style={{ color: 'white' }}>
-                    KES {activeCycle?.maxLoanAmount?.toLocaleString()}
-                  </strong>. A 10% flat fee applies.
-                  Your request will be reviewed by the executive team.
-                </p>
-                <form onSubmit={handleLoanRequest}>
-                  <div style={{
-                    display: 'grid', gridTemplateColumns: '1fr 1fr',
-                    gap: '1rem', marginBottom: '1rem'
-                  }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem',
-                        fontSize: '0.875rem', color: '#94a3b8' }}>
-                        Amount (KES)
-                      </label>
-                      <input
-                        type="number"
-                        placeholder={`Max KES ${activeCycle?.maxLoanAmount?.toLocaleString()}`}
-                        value={loanForm.principal}
-                        onChange={e => setLoanForm({
-                          ...loanForm, principal: e.target.value })}
-                        required
-                        style={{
-                          width: '100%', padding: '0.75rem',
-                          background: '#0f172a', border: '1px solid #475569',
-                          borderRadius: '6px', color: 'white',
-                          fontSize: '0.875rem', boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem',
-                        fontSize: '0.875rem', color: '#94a3b8' }}>
-                        Repayment Period (weeks)
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="e.g. 4"
-                        min="1"
-                        max="52"
-                        value={loanForm.repaymentWeeks}
-                        onChange={e => setLoanForm({
-                          ...loanForm, repaymentWeeks: e.target.value })}
-                        required
-                        style={{
-                          width: '100%', padding: '0.75rem',
-                          background: '#0f172a', border: '1px solid #475569',
-                          borderRadius: '6px', color: 'white',
-                          fontSize: '0.875rem', boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {loanForm.principal && (
-                    <div style={{
-                      background: '#0f172a', borderRadius: '8px',
-                      padding: '1rem', marginBottom: '1rem',
-                      border: '1px solid #334155', fontSize: '0.875rem'
-                    }}>
-                      <span style={{ color: '#94a3b8' }}>You receive: </span>
-                      <span style={{ color: 'white', fontWeight: '600' }}>
-                        KES {parseFloat(loanForm.principal).toLocaleString()}
-                      </span>
-                      <span style={{ color: '#94a3b8', marginLeft: '1rem' }}>
-                        Fee (10%):
-                      </span>
-                      <span style={{ color: '#f59e0b', marginLeft: '0.25rem' }}>
-                        KES {(parseFloat(loanForm.principal) * 0.1).toLocaleString()}
-                      </span>
-                      <span style={{ color: '#94a3b8', marginLeft: '1rem' }}>
-                        You repay:
-                      </span>
-                      <span style={{ color: '#4ade80', fontWeight: '600',
-                        marginLeft: '0.25rem' }}>
-                        KES {(parseFloat(loanForm.principal) * 1.1).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loanLoading}
-                    style={{
-                      padding: '0.75rem 1.5rem', background: '#2563eb',
-                      border: 'none', borderRadius: '8px',
-                      color: 'white', cursor: 'pointer', fontWeight: '600'
-                    }}
-                  >
-                    {loanLoading ? 'Submitting...' : 'Submit Request'}
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {loans.length === 0 ? (
-              <div style={{
-                background: '#1e293b', borderRadius: '12px',
-                padding: '3rem', textAlign: 'center',
-                border: '1px solid #334155', color: '#94a3b8'
-              }}>
-                You have no loan history yet.
-                {activeCycle && !activeLoan && (
-                  <p style={{ marginBottom: 0 }}>
-                    Click <strong style={{ color: 'white' }}>
-                      + Request Loan
-                    </strong> to apply.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div style={{
-                background: '#1e293b', borderRadius: '12px',
-                border: '1px solid #334155', overflow: 'hidden'
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#0f172a' }}>
-                      {['Principal', 'Fee', 'Total', 'Weeks', 'Due Date',
-                        'Status', 'Requested'].map(h => (
-                        <th key={h} style={{
-                          padding: '1rem', textAlign: 'left',
-                          fontSize: '0.75rem', color: '#94a3b8',
-                          textTransform: 'uppercase', letterSpacing: '0.05em'
-                        }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loans.map((loan, i) => {
-                      const { bg, color } = statusColor(loan.status)
-                      return (
-                        <tr key={loan.id} style={{
-                          borderTop: '1px solid #334155',
-                          background: i % 2 === 0 ? 'transparent' : '#ffffff08'
-                        }}>
-                          <td style={{ padding: '1rem', color: '#4ade80',
-                            fontWeight: '600' }}>
-                            KES {loan.principal?.toLocaleString()}
-                          </td>
-                          <td style={{ padding: '1rem', color: '#f59e0b' }}>
-                            KES {loan.flatFee?.toLocaleString()}
-                          </td>
-                          <td style={{ padding: '1rem', fontWeight: '600' }}>
-                            KES {loan.totalRepayable?.toLocaleString()}
-                          </td>
-                          <td style={{ padding: '1rem', color: '#94a3b8' }}>
-                            {loan.repaymentWeeks}w
-                          </td>
-                          <td style={{ padding: '1rem', color: '#94a3b8',
-                            fontSize: '0.875rem' }}>
-                            {loan.dueDate
-                              ? new Date(loan.dueDate).toLocaleDateString()
-                              : '—'}
-                          </td>
-                          <td style={{ padding: '1rem' }}>
-                            <span style={{
-                              padding: '0.25rem 0.75rem', borderRadius: '9999px',
-                              fontSize: '0.75rem', fontWeight: '600',
-                              background: bg, color
-                            }}>
-                              {loan.status}
-                            </span>
-                          </td>
-                          <td style={{ padding: '1rem', color: '#94a3b8',
-                            fontSize: '0.875rem' }}>
-                            {new Date(loan.requestedAt).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── INVESTMENTS TAB ── */}
-        {activeTab === 'investments' && (
-          <div>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center', marginBottom: '1.5rem'
-            }}>
-              <h2 style={{ margin: 0 }}>Group Investments</h2>
-              {activeCycle && (
-                <span style={{
-                  fontSize: '0.875rem', color: '#94a3b8',
-                  background: '#1e293b', padding: '0.5rem 1rem',
-                  borderRadius: '8px', border: '1px solid #334155'
-                }}>
-                  {activeCycle.name}
-                </span>
-              )}
+              <p className="text-gray-500 text-sm">
+                Executives will post investment projects here.
+              </p>
             </div>
-
-            {investments.length > 0 && (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                gap: '1rem', marginBottom: '1.5rem'
-              }}>
-                {[
-                  { label: 'Active Projects',
-                    value: investments.filter(i => i.status === 'Active').length,
-                    color: '#60a5fa' },
-                  { label: 'Capital Deployed',
-                    value: `KES ${investments.reduce(
-                      (s, i) => s + i.capitalAllocated, 0).toLocaleString()}`,
-                    color: '#f59e0b' },
-                  { label: 'Returns Generated',
-                    value: `KES ${investments.reduce(
-                      (s, i) => s + i.returnsGenerated, 0).toLocaleString()}`,
-                    color: '#4ade80' },
-                  { label: 'Net Profit',
-                    value: (() => {
-                      const net = investments.reduce(
-                        (s, i) => s + i.returnsGenerated - i.capitalAllocated, 0)
-                      return `${net >= 0 ? '+' : ''}KES ${net.toLocaleString()}`
-                    })(),
-                    color: investments.reduce(
-                      (s, i) => s + i.returnsGenerated - i.capitalAllocated, 0) >= 0
-                      ? '#4ade80' : '#f87171' },
-                ].map(card => (
-                  <div key={card.label} style={{
-                    background: '#1e293b', borderRadius: '12px',
-                    padding: '1.25rem', border: '1px solid #334155'
-                  }}>
-                    <p style={{ margin: '0 0 0.5rem',
-                      color: '#94a3b8', fontSize: '0.875rem' }}>
-                      {card.label}
-                    </p>
-                    <p style={{ margin: 0, fontSize: '1.25rem',
-                      fontWeight: 'bold', color: card.color }}>
-                      {card.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {investments.length === 0 ? (
-              <div style={{
-                background: '#1e293b', borderRadius: '12px',
-                padding: '3rem', textAlign: 'center',
-                border: '1px solid #334155', color: '#94a3b8'
-              }}>
-                No investment projects this cycle yet.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {investments.map(inv => {
-                  const net = inv.returnsGenerated - inv.capitalAllocated
-                  const statusMap = {
-                    Active: { bg: '#1e3a5f', color: '#60a5fa' },
-                    Completed: { bg: '#1a3a2a', color: '#4ade80' },
-                    Cancelled: { bg: '#3b1a1a', color: '#f87171' },
-                  }
-                  const { bg, color } = statusMap[inv.status] ||
-                    { bg: '#1e293b', color: '#94a3b8' }
-
-                  return (
-                    <div key={inv.id} style={{
-                      background: '#1e293b', borderRadius: '12px',
-                      padding: '1.5rem', border: '1px solid #334155'
-                    }}>
-                      <div style={{
-                        display: 'flex', justifyContent: 'space-between',
-                        alignItems: 'center', marginBottom: '1rem'
-                      }}>
-                        <div>
-                          <h3 style={{ margin: '0 0 0.25rem', fontSize: '1rem' }}>
-                            {inv.projectName}
-                          </h3>
-                          <p style={{ margin: 0, color: '#94a3b8',
-                            fontSize: '0.875rem' }}>
-                            Started {new Date(
-                              inv.investmentDate).toLocaleDateString()}
-                            {inv.completedDate && ` — Completed ${new Date(
-                              inv.completedDate).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <span style={{
-                          padding: '0.25rem 0.75rem', borderRadius: '9999px',
-                          fontSize: '0.75rem', fontWeight: '600',
-                          background: bg, color
-                        }}>
-                          {inv.status}
-                        </span>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {investments.map(inv => {
+                const net = inv.returnsGenerated - inv.capitalAllocated
+                const statusMap = {
+                  Active:    'bg-blue-100 text-blue-700',
+                  Completed: 'bg-green-100 text-green-700',
+                  Cancelled: 'bg-red-100 text-red-700',
+                }
+                return (
+                  <div key={inv.id} className="card">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-semibold text-gray-900 text-base">
+                          {inv.projectName}
+                        </h3>
+                        <p className="text-gray-500 text-xs mt-0.5">
+                          Started{' '}
+                          {new Date(inv.investmentDate).toLocaleDateString()}
+                          {inv.completedDate && ` — Completed ${
+                            new Date(inv.completedDate).toLocaleDateString()}`}
+                        </p>
                       </div>
-
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                        gap: '1rem', marginBottom: inv.notes ? '1rem' : 0
-                      }}>
-                        {[
-                          { label: 'Capital In',
-                            value: `KES ${inv.capitalAllocated?.toLocaleString()}`,
-                            color: '#f59e0b' },
-                          { label: 'Returns Out',
-                            value: `KES ${inv.returnsGenerated?.toLocaleString()}`,
-                            color: '#4ade80' },
-                          { label: 'Net',
-                            value: `${net >= 0 ? '+' : ''}KES ${net.toLocaleString()}`,
-                            color: net >= 0 ? '#4ade80' : '#f87171' },
-                        ].map(item => (
-                          <div key={item.label} style={{
-                            background: '#0f172a', borderRadius: '8px',
-                            padding: '0.75rem', border: '1px solid #334155'
-                          }}>
-                            <p style={{ margin: '0 0 0.25rem',
-                              color: '#64748b', fontSize: '0.75rem' }}>
-                              {item.label}
-                            </p>
-                            <p style={{ margin: 0, fontWeight: '600',
-                              color: item.color }}>
-                              {item.value}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {inv.notes && (
-                        <div style={{
-                          background: '#0f172a', borderRadius: '8px',
-                          padding: '0.75rem', border: '1px solid #334155',
-                          marginTop: '1rem'
-                        }}>
-                          <p style={{ margin: '0 0 0.25rem',
-                            color: '#64748b', fontSize: '0.75rem' }}>
-                            Notes
-                          </p>
-                          <p style={{ margin: 0, color: '#94a3b8',
-                            fontSize: '0.875rem' }}>
-                            {inv.notes}
-                          </p>
-                        </div>
-                      )}
+                      <span className={`badge ${
+                        statusMap[inv.status] || 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {inv.status}
+                      </span>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
-      </div>
-    </div>
+                    <div className="grid grid-cols-3 gap-3 mb-3">
+                      {[
+                        { label: 'Capital In',
+                          value: `KES ${inv.capitalAllocated?.toLocaleString()}`,
+                          color: 'text-amber-600' },
+                        { label: 'Returns Out',
+                          value: `KES ${inv.returnsGenerated?.toLocaleString()}`,
+                          color: 'text-green-600' },
+                        { label: 'Net',
+                          value: `${net >= 0 ? '+' : ''}KES ${net.toLocaleString()}`,
+                          color: net >= 0 ? 'text-green-600' : 'text-red-600' },
+                      ].map(item => (
+                        <div key={item.label}
+                          className="bg-gray-50 rounded-lg p-3 
+                            border border-gray-100">
+                          <p className="text-xs text-gray-500 mb-1">
+                            {item.label}
+                          </p>
+                          <p className={`font-bold text-sm ${item.color}`}>
+                            {item.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {inv.notes && (
+                      <div className="bg-gray-50 rounded-lg p-3 
+                        border border-gray-100">
+                        <p className="text-xs text-gray-500 mb-1">Notes</p>
+                        <p className="text-sm text-gray-700">{inv.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── HALL OF FAME TAB ── */}
+      {activeTab === 'halloffame' && <HallOfFame />}
+      {activeTab === 'constitution' && <Constitution />}
+
+    </DashboardLayout>
   )
 }

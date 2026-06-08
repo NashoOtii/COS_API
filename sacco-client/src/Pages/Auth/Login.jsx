@@ -35,21 +35,25 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center 
-      justify-center px-4">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
 
         {/* Logo / Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 
-            bg-blue-600 rounded-2xl mb-4 text-2xl">
-            🤝
-          </div>
-          <h1 className="text-3xl font-bold text-white">Circle of Support</h1>
-          <p className="text-slate-400 mt-2 text-sm">
-            Sign in to your account
-          </p>
-        </div>
+        <div className="flex flex-col items-center text-center mb-6">
+  <img
+    src="/Logo.png"
+    alt="Circle of Support"
+    className="w-24 h-24 rounded-full object-contain mb-4
+               ring-4 ring-primary-200 shadow-lg"
+  />
+  <h1 className="text-4xl font-extrabold text-slate-100 tracking-tight">
+    Circle of Support
+  </h1>
+  <p className="text-slate-400 mt-2 text-base">
+    Sign in to your account
+  </p>
+</div>
+  
 
         {/* Card */}
         <div className="card">
