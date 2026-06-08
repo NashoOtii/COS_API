@@ -179,7 +179,7 @@ export default function Register() {
             <div>
               <label className="label">
                 Email{' '}
-                <span className="text-gray-400 font-normal">(optional)</span>
+                <span className="text-gray-400 font-normal">(required)</span>
               </label>
               <input
                 type="email"
