@@ -31,6 +31,7 @@ namespace SaccoApi.Controllers
 
         // POST: api/auth/register
         [HttpPost("register")]
+        [EnableRateLimiting("login")] // <--- added this to protect against abuse of the registration endpoint
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
             // Check phone not already used
@@ -68,9 +69,18 @@ namespace SaccoApi.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            // Assign role
+            // Assign role, chatch if it fails for some reason (shouldn't since we validated above, but just in case)
             var roleName = dto.Role.ToString();
             await _userManager.AddToRoleAsync(user, memberRole.ToString());
+
+            var roleResult = await _userManager.AddToRoleAsync(user, memberRole.ToString());
+            if (!roleResult.Succeeded)
+           {
+           return BadRequest(new { 
+          message = "Failed to assign role.", 
+          errors = roleResult.Errors 
+          });
+}
 
             // Create the linked Member record
             var member = new Member
