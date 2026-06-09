@@ -1,8 +1,13 @@
-import axios from 'axios'
+import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
-})
+  baseURL: 'https://sacco-api-v6ux.onrender.com/api', 
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export default api;
 
 // Attach token to every request automatically
 api.interceptors.request.use((config) => {
