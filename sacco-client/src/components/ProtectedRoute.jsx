@@ -1,6 +1,8 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+const EXECUTIVE_ROLES = ['Chairperson', 'Treasurer', 'Secretary']
+
 export default function ProtectedRoute({ children, executiveOnly = false }) {
   const { user, loading, isExecutive } = useAuth()
 
@@ -12,6 +14,7 @@ export default function ProtectedRoute({ children, executiveOnly = false }) {
 
   if (!user) return <Navigate to="/login" replace />
   if (executiveOnly && !isExecutive) return <Navigate to="/member" replace />
-
+  if (!executiveOnly && isExecutive) return <Navigate to="/executive" replace />
+  
   return children
 }

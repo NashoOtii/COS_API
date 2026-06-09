@@ -12,6 +12,7 @@ export default function Login() {
   const [form, setForm] = useState({ phoneNumber: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -24,11 +25,11 @@ export default function Login() {
         fullName: data.fullName,
         role: data.role,
       }, data.token)
-      const isExecutive = ['Treasurer', 'Secretary', 'Chairperson']
-        .includes(data.role)
+      const executiveRoles = ['Chairperson', 'Treasurer', 'Secretary']
+      const isExecutive = executiveRoles.includes(data.role)
       navigate(isExecutive ? '/executive' : '/member')
     } catch (err) {
-      setError(err.response?.data || 'Invalid phone number or password.')
+      setError('Invalid phone number or password.')
     } finally {
       setLoading(false)
     }
@@ -87,7 +88,7 @@ export default function Login() {
             <div>
               <label className="label">Password</label>
               <input
-                type="password"
+                type= {showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
