@@ -77,7 +77,7 @@ builder.Services.AddControllers()
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://sacco-api-v6ux.onrender.com")
+        policy.WithOrigins("https://sacco-api-v6ux.onrender.com" , "http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
