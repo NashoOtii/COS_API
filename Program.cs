@@ -69,12 +69,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy.WithOrigins(
-            "https://sacco-client.onrender.com",
-            "http://localhost:5173"
-        )
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .WithMethods("GET", "POST", "PUT", "DELETE");
+                "https://sacco-client.onrender.com",
+                "http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
@@ -84,8 +82,7 @@ builder.Services.AddRateLimiter(options =>
     {
         limiter.PermitLimit = 5;
         limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueProcessingOrder =
-            QueueProcessingOrder.OldestFirst;
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         limiter.QueueLimit = 0;
     });
 });
@@ -94,24 +91,7 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// FORCE CORS TO LAYER ZERO
-app.Use(async (context, next) =>
-{
-    context.Response.Headers["Access-Control-Allow-Origin"] = "https://sacco-client.onrender.com";
-    context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With";
-    context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
-
-    if (context.Request.Method == "OPTIONS")
-    {
-        context.Response.StatusCode = 200;
-        await context.Response.WriteAsync("OK");
-        return; // Stop processing and return 200 OK for preflight instantly
-    }
-
-    await next();
-});
-
-// Auto-migrate on startup
+// Auto-migrate
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SaccoDbContext>();
@@ -142,12 +122,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-//app.UseHttpsRedirection();
-app.UseRouting();
-app.UseCors("AllowFrontend");     
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
-app.UseRateLimiter();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
