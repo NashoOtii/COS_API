@@ -67,11 +67,13 @@ public async Task<ActionResult<Member>> Create(CreateMemberDto dto)
 }
 
 
-// POST: api/members/5/reset-password
+// POST: api/members/5/reset-password?newPassword=XYZ
 [HttpPost("{id}/reset-password")]
-public async Task<IActionResult> ResetPassword(int id, 
-    [FromBody] string newPassword)
+public async Task<IActionResult> ResetPassword(int id, [FromQuery] string newPassword)
 {
+    if (string.IsNullOrWhiteSpace(newPassword)) 
+        return BadRequest("Password cannot be empty.");
+
     var member = await _context.Members.FindAsync(id);
     if (member == null) return NotFound();
 

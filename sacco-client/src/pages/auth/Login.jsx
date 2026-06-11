@@ -87,7 +87,17 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="label">Password</label>
+               <div className="flex justify-between items-center mb-1">
+                <label className="label mb-0">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setError('Please contact the Chairperson, Secretary, or Treasurer to reset your password.')}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors bg-transparent border-none cursor-pointer"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
               <div className="relative">
                 <input
                   type= {showPassword ? "text" : "password"}

@@ -23,14 +23,23 @@ export default function Register() {
       setSuccess(true)
     } catch (err) {
       const data = err.response?.data
-      if (typeof data === 'string') {
+      if (!data) {
+        setError('Network error. Please check your connection and try again.')
+      } else if (typeof data === 'string') {
         setError(data)
+
       } else if (data?.errors) {
-        setError(Object.values(data.errors).flat().join(' '))
+        if (Array.isArray(data.errors)) {
+          setError(data.errors.map(e => e.description || JSON.stringify(e)).join(' '))
+        } else {
+          setError(Object.values(data.errors).flat().join(' '))
+        }
       } else if (Array.isArray(data)) {
-        setError(data.map(e => e.description).join(' '))
+        setError(data.map(e => e.description || JSON.stringify(e)).join(' '))
+
       } else if (data?.message) {
         setError(data.message)
+
       } else {
         setError('Registration failed. Please try again.')
       }

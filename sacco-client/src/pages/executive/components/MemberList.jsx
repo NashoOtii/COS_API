@@ -30,13 +30,37 @@ export default function MemberList() {
     fetchData()
   }, [fetchData])
 
-  // 4. toggleStatus is now correctly sitting at the component level
-  const toggleStatus = async (member) => {
-    try {
+  // 4. toggleStatus is now correctly sitting at the component level--password reset is also here
+      const toggleStatus = async (member) => {
+       try {
       const newStatus = member.status === 'Active' ? 1 : 0
-      await api.patch(`/members/${member.id}/status`, newStatus, {
+       await api.patch(`/members/${member.id}/status`, newStatus, {
         headers: { 'Content-Type': 'application/json' }
       })
+    
+     const handleResetPassword = async (member) => {
+    const newPassword = prompt(`Enter a new temporary password for ${member.fullName}:`)
+    
+    // If user clicks cancel or leaves it blank, do nothing
+    if (!newPassword || newPassword.trim() === '') return
+
+    if (newPassword.length < 6) {
+      alert("Password must be at least 6 characters long.")
+      return
+    }
+
+    try {
+      // Sending newPassword as a query parameter to match the [FromQuery] backend update
+      await api.post(`/members/${member.id}/reset-password?newPassword=${encodeURIComponent(newPassword)}`)
+      alert(`Password for ${member.fullName} has been updated successfully!`)
+    } catch (error) {
+      console.error("Error resetting password:", error)
+      const errorMsg = error.response?.data 
+        ? (Array.isArray(error.response.data) ? error.response.data.join(' ') : error.response.data)
+        : "Failed to reset password."
+      alert(`Error: ${errorMsg}`)
+    }
+  }
       
       // Optimistically update the local state UI 
       setMembers(members.map(m =>
@@ -232,6 +256,13 @@ export default function MemberList() {
                   >
                     {member.status === 'Active' ? 'Deactivate' : 'Activate'}
                   </button>
+                 <button
+                      onClick={() => handleResetPassword(member)}
+                      className="text-xs font-medium px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg border-none cursor-pointer transition-colors"
+                    >
+                      Reset Pass
+                    </button>
+                
                 </td>
               </tr>
             ))}
