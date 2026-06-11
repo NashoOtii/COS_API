@@ -5,10 +5,11 @@ import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import ExecutiveDashboard from './pages/executive/ExecutiveDashboard'
 import MemberDashboard from './pages/member/MemberDashboard'
-import logoutIcon from './assets/icons8-logout-50.png';
+import logoutIcon from './assets/icons8-logout-50.png'; // Keeping your unused import just in case
 
-// FIX: Add the interceptor component outside of the App function
+// The interceptor component
 function RootRedirect() {
+  // It crashes right here if useAuth isn't imported at the very top of this file
   const { user, loading } = useAuth();
   
   if (loading) return null;
