@@ -16,15 +16,18 @@ namespace SaccoApi.Controllers
     public class AuthController : ControllerBase
     {
         private readonly UserManager<IdentityUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly SaccoDbContext _context;
         private readonly IConfiguration _config;
 
         public AuthController(
             UserManager<IdentityUser> userManager,
+            RoleManager<IdentityRole> roleManager,
             SaccoDbContext context,
             IConfiguration config)
         {
             _userManager = userManager;
+            _roleManager = roleManager;
             _context = context;
             _config = config;
         }
@@ -53,11 +56,9 @@ namespace SaccoApi.Controllers
 
         if (roleAlreadyTaken)
             return BadRequest(
-                $"The {dto.Role} position is already filled. " +
-                $"Contact your executive team to make changes.");
+                $"The {dto.Role} position is already filled.");
     }    
-
-            // Create the Identity user (handles password hashing)
+           // Create the Identity user (handles password hashing)
             var user = new IdentityUser
             {
                 UserName = dto.PhoneNumber,
@@ -69,20 +70,22 @@ namespace SaccoApi.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            // Assign role, chatch if it fails for some reason (shouldn't since we validated above, but just in case)
-            var roleName = dto.Role.ToString();
-            await _userManager.AddToRoleAsync(user, memberRole.ToString());
+             //  Check role exists before assigning
+         var roleName = memberRole.ToString();
+         if (!await _roleManager.RoleExistsAsync(roleName))
+        await _roleManager.CreateAsync(new IdentityRole(roleName));
 
-            var roleResult = await _userManager.AddToRoleAsync(user, memberRole.ToString());
-            if (!roleResult.Succeeded)
+           var roleResult = await _userManager.AddToRoleAsync(user, roleName);
+          if (!roleResult.Succeeded)
            {
-           return BadRequest(new { 
-          message = "Failed to assign role.", 
-          errors = roleResult.Errors 
-          });
-}
+        // Clean up the user if role assignment fails
+        await _userManager.DeleteAsync(user);
+        return BadRequest(roleResult.Errors
+            .Select(e => e.Description).ToList());
+            }
 
-            // Create the linked Member record
+
+          // Create the linked Member record
             var member = new Member
             {
                 FullName = dto.FullName,
