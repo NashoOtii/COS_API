@@ -8,6 +8,8 @@ export default function ContributionLogger({ activeCycle, onContributionLogged }
   const [members, setMembers] = useState([])
   const [contributions, setContributions] = useState([])
   const [weekNumber, setWeekNumber] = useState(1)
+  const [pageLoading, setPageLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(null) 
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -38,7 +40,7 @@ export default function ContributionLogger({ activeCycle, onContributionLogged }
 
   const logContribution = async (memberId) => {
     if (!activeCycle) return
-    setLoading(true)
+    setSubmitting(memberId)
     setMessage('')
     try {
       await api.post('/contributions', {
@@ -55,7 +57,7 @@ export default function ContributionLogger({ activeCycle, onContributionLogged }
     } catch (err) {
       setMessage(err.response?.data || 'Failed to log contribution.')
     } finally {
-      setLoading(false)
+      setSubmitting(null)
     }
   }
 
@@ -171,13 +173,13 @@ export default function ContributionLogger({ activeCycle, onContributionLogged }
                         ? 'bg-green-100 text-green-700'
                         : 'bg-red-100 text-red-600'
                     }`}>
-                      {paid ? '✓ Paid' : '✗ Unpaid'}
+                      {paid ? 'Paid' : 'Unpaid'}
                     </span>
                   </td>
                   <td className="table-cell">
                     <button
                       onClick={() => logContribution(member.id)}
-                      disabled={paid || loading}
+                      disabled={paid || submitting === member.id}
                       className={`text-xs font-semibold px-4 py-2 rounded-lg
                         border-none cursor-pointer transition-all
                         ${paid
@@ -185,7 +187,21 @@ export default function ContributionLogger({ activeCycle, onContributionLogged }
                           : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
                         }`}
                     >
-                      {paid ? 'Already Logged' : 'Log Payment'}
+                      {/*spinner inside button only */}
+                      {isSubmitting ? (
+                        <span className="flex items-center gap-1.5
+                          justify-center">
+                          <svg className="w-3 h-3 animate-spin"
+                            viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12"
+                              cy="12" r="10" stroke="currentColor"
+                              strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor"
+                              d="M4 12a8 8 0 018-8v8H4z"/>
+                          </svg>
+                          Saving...
+                        </span>
+                      ) : paid ? 'Already Logged' : 'Log Payment'}
                     </button>
                   </td>
                 </tr>

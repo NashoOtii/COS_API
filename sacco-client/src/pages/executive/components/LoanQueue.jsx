@@ -3,7 +3,7 @@ import api from '../../../api/axios'
 import { useAuth } from '../../../context/AuthContext'
 import { SkeletonTable } from '../../../components/Skeleton'
 
-export default function LoanQueue({ activeCycle }) {
+export default function LoanQueue({ activeCycle, onLoanAction }) {
   const { user } = useAuth()
   const [loans, setLoans] = useState([])
   const [members, setMembers] = useState([])
@@ -43,6 +43,7 @@ export default function LoanQueue({ activeCycle }) {
       setShowRequestForm(false)
       await fetchLoans()
       setMessage('Loan request submitted successfully.')
+      onLoanAction && onLoanAction()
     } catch (err) {
       setMessage(err.response?.data || 'Failed to submit loan request.')
     }
@@ -54,6 +55,7 @@ export default function LoanQueue({ activeCycle }) {
       await api.patch(
         `/loans/${loanId}/approve?approvedById=${user.memberId}`)
       await fetchLoans()
+      if (onLoanAction) onLoanAction()
       setMessage('Loan approved successfully.')
     } catch (err) {
       setMessage(err.response?.data || 'Failed to approve loan.')
@@ -65,6 +67,7 @@ export default function LoanQueue({ activeCycle }) {
     try {
       await api.patch(`/loans/${loanId}/disburse`)
       await fetchLoans()
+      if (onLoanAction) onLoanAction()
       setMessage('Loan disbursed successfully.')
     } catch (err) {
       setMessage(err.response?.data || 'Failed to disburse loan.')

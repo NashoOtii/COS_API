@@ -31,55 +31,50 @@ export default function MemberList() {
   }, [fetchData])
 
   // 4. toggleStatus
-     const toggleStatus = async (member) => {
-  try {
-    const newStatusValue = member.status === 'Active' ? 1 : 0
-    await api.patch(`/members/${member.id}/status`, newStatusValue, {
-      headers: { 'Content-Type': 'application/json' }
-    })
-    setMembers(members.map(m =>
-      m.id === member.id
-        ? { ...m, status: member.status === 'Active' 
-            ? 'Inactive' : 'Active' }
-        : m
-    ))
-  } catch (error) {
-    console.error("Error toggling status:", error)
+  const toggleStatus = async (member) => {
+    try {
+      const newStatusValue = member.status === 'Active' ? 1 : 0
+      await api.patch(`/members/${member.id}/status`, newStatusValue, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      setMembers(members.map(m =>
+        m.id === member.id
+          ? { ...m, status: member.status === 'Active' ? 'Inactive' : 'Active' }
+          : m
+      ))
+    } catch (error) {
+      console.error("Error toggling status:", error)
+    }
   }
-}
 
-// reset password
-const handleResetPassword = async (member) => {
-  const newPassword = prompt(
-    `Enter new temporary password for ${member.fullName}:`)
-  if (!newPassword || newPassword.trim() === '') return
-  if (newPassword.length < 6) {
-    alert('Password must be at least 6 characters.')
-    return
+  // reset password
+  const handleResetPassword = async (member) => {
+    const newPassword = prompt(`Enter new temporary password for ${member.fullName}:`)
+    if (!newPassword || newPassword.trim() === '') return
+    if (newPassword.length < 6) {
+      alert('Password must be at least 6 characters.')
+      return
+    }
+    try {
+      await api.post(`/members/${member.id}/reset-password?newPassword=${encodeURIComponent(newPassword)}`)
+      alert(`Password reset for ${member.fullName} successfully.`)
+    } catch (error) {
+      const msg = error.response?.data
+      alert(`Error: ${Array.isArray(msg) ? msg.join(' ') : msg || 'Reset failed.'}`)
+    }
   }
-  try {
-    await api.post(
-      `/members/${member.id}/reset-password?newPassword=${
-        encodeURIComponent(newPassword)}`)
-    alert(`Password reset for ${member.fullName} successfully.`)
-  } catch (error) {
-    const msg = error.response?.data
-    alert(`Error: ${Array.isArray(msg) ? msg.join(' ') : msg 
-      || 'Reset failed.'}`)
-  }
-}
 
-const approveMember = async (member) => {
-  try {
-    await api.patch(`/members/${member.id}/status`, 0, {
-      headers: { 'Content-Type': 'application/json' }
-    })
-    setPending(pending.filter(m => m.id !== member.id))
-    await fetchData()
-  } catch (error) {
-    console.error("Error approving member:", error)
+  const approveMember = async (member) => {
+    try {
+      await api.patch(`/members/${member.id}/status`, 0, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      setPending(pending.filter(m => m.id !== member.id))
+      await fetchData()
+    } catch (error) {
+      console.error("Error approving member:", error)
+    }
   }
-}
 
   const roleColor = (role) => {
     const map = {
@@ -99,12 +94,12 @@ const approveMember = async (member) => {
   const activeCount = members.filter(m => m.status === 'Active').length
 
   if (loading) return (
-  <div>
-    <div className="page-header">
-      <div className="h-7 bg-gray-200 rounded w-32 animate-pulse" />
+    <div>
+      <div className="page-header">
+        <div className="h-7 bg-gray-200 rounded w-32 animate-pulse" />
+      </div>
+      <SkeletonTable rows={6} />
     </div>
-    <SkeletonTable rows={6} />
-  </div>
   )
 
   return (
@@ -119,83 +114,81 @@ const approveMember = async (member) => {
       </div>
 
       {/* Pending Approvals */}
-{pending.length > 0 && (
-  <div className="mb-6">
-    <div className="flex items-center gap-2 mb-3">
-      <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"/>
-      <h3 className="text-sm font-semibold text-amber-700">
-        Pending Approval ({pending.length})
-      </h3>
-    </div>
-    <div className="card p-0 overflow-hidden border-amber-200">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-amber-100 bg-amber-50">
-            <th className="table-header text-amber-700">Member</th>
-            <th className="table-header text-amber-700">Phone</th>
-            <th className="table-header text-amber-700">Role Requested</th>
-            <th className="table-header text-amber-700">Registered</th>
-            <th className="table-header text-amber-700">Action</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-amber-50">
-          {pending.map(member => (
-            <tr key={member.id} className="hover:bg-amber-50/50">
-              <td className="table-cell">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-amber-100
-                    text-amber-600 flex items-center justify-center
-                    font-semibold text-sm">
-                    {member.fullName.charAt(0)}
-                  </div>
-                  <span className="font-medium text-gray-900">
-                    {member.fullName}
-                  </span>
-                </div>
-              </td>
-              <td className="table-cell text-gray-500">
-                {member.phoneNumber}
-              </td>
-              <td className="table-cell">
-                <span className="badge bg-amber-100 text-amber-700">
-                  {member.role}
-                </span>
-              </td>
-              <td className="table-cell text-gray-500 text-xs">
-                {new Date(member.dateJoined).toLocaleDateString()}
-              </td>
-              <td className="table-cell">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => approveMember(member)}
-                    className="text-xs font-semibold px-3 py-1.5
-                      bg-green-600 hover:bg-green-700 text-white
-                      rounded-lg border-none cursor-pointer transition-colors"
-                  >
-                    ✓ Approve
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await api.patch(`/members/${member.id}/status`, 1, {
-                        headers: { 'Content-Type': 'application/json' }
-                      })
-                      setPending(pending.filter(m => m.id !== member.id))
-                    }}
-                    className="text-xs font-semibold px-3 py-1.5
-                      bg-red-50 hover:bg-red-100 text-red-600
-                      rounded-lg border-none cursor-pointer transition-colors"
-                  >
-                    ✗ Reject
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
+      {pending.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"/>
+            <h3 className="text-sm font-semibold text-amber-700">
+              Pending Approval ({pending.length})
+            </h3>
+          </div>
+          <div className="card p-0 overflow-hidden border-amber-200">
+            {/* Added scroll wrapper */}
+            <div className="w-full overflow-x-auto">
+              {/* Added min-width to maintain clean desktop spacing on mobile viewports */}
+              <table className="w-full min-w-[750px]">
+                <thead>
+                  <tr className="border-b border-amber-100 bg-amber-50">
+                    <th className="table-header text-amber-700 text-left">Member</th>
+                    <th className="table-header text-amber-700 text-left">Phone</th>
+                    <th className="table-header text-amber-700 text-left">Role Requested</th>
+                    <th className="table-header text-amber-700 text-left">Registered</th>
+                    <th className="table-header text-amber-700 text-left">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-50">
+                  {pending.map(member => (
+                    <tr key={member.id} className="hover:bg-amber-50/50">
+                      <td className="table-cell">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-semibold text-sm">
+                            {member.fullName.charAt(0)}
+                          </div>
+                          <span className="font-medium text-gray-900">
+                            {member.fullName}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="table-cell text-gray-500">
+                        {member.phoneNumber}
+                      </td>
+                      <td className="table-cell">
+                        <span className="badge bg-amber-100 text-amber-700">
+                          {member.role}
+                        </span>
+                      </td>
+                      <td className="table-cell text-gray-500 text-xs">
+                        {new Date(member.dateJoined).toLocaleDateString()}
+                      </td>
+                      <td className="table-cell">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => approveMember(member)}
+                            className="text-xs font-semibold px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg border-none cursor-pointer transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await api.patch(`/members/${member.id}/status`, 1, {
+                                headers: { 'Content-Type': 'application/json' }
+                              })
+                              setPending(pending.filter(m => m.id !== member.id))
+                            }}
+                            className="text-xs font-semibold px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border-none cursor-pointer transition-colors"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="mb-4">
@@ -209,73 +202,78 @@ const approveMember = async (member) => {
       </div>
 
       <div className="card p-0 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="table-header text-left">Member</th>
-              <th className="table-header text-left">Phone</th>
-              <th className="table-header text-left">Role</th>
-              <th className="table-header text-left">Status</th>
-              <th className="table-header text-left">Joined</th>
-              <th className="table-header text-left">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filtered.map(member => (
-              <tr key={member.id} className="hover:bg-gray-50 transition-colors">
-                <td className="table-cell">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm flex-shrink-0">
-                      {member.fullName ? member.fullName.charAt(0) : '?'}
-                    </div>
-                    <span className="font-medium text-gray-900">
-                      {member.fullName}
-                    </span>
-                  </div>
-                </td>
-                <td className="table-cell text-gray-500">
-                  {member.phoneNumber}
-                </td>
-                <td className="table-cell">
-                  <span className={`badge ${roleColor(member.role)}`}>
-                    {member.role}
-                  </span>
-                </td>
-                <td className="table-cell">
-                  <span className={`badge ${
-                    member.status === 'Active'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-600'
-                  }`}>
-                    {member.status === 'Active' ? '● Active' : '● Inactive'}
-                  </span>
-                </td>
-                <td className="table-cell text-gray-500 text-xs">
-                  {member.dateJoined ? new Date(member.dateJoined).toLocaleDateString() : 'N/A'}
-                </td>
-                <td className="table-cell">
-                  <button
-                    onClick={() => toggleStatus(member)}
-                    className={`text-xs font-medium px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors ${
-                      member.status === 'Active'
-                        ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                        : 'bg-green-50 text-green-600 hover:bg-green-100'
-                    }`}
-                  >
-                    {member.status === 'Active' ? 'Deactivate' : 'Activate'}
-                  </button>
-                 <button
-                      onClick={() => handleResetPassword(member)}
-                      className="text-xs font-medium px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg border-none cursor-pointer transition-colors"
-                    >
-                      Reset Pass
-                    </button>
-                
-                </td>
+        {/* Added scroll wrapper */}
+        <div className="w-full overflow-x-auto">
+          {/* Added min-width to ensure columns don't break layout lines */}
+          <table className="w-full min-w-[850px]">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="table-header text-left">Member</th>
+                <th className="table-header text-left">Phone</th>
+                <th className="table-header text-left">Role</th>
+                <th className="table-header text-left">Status</th>
+                <th className="table-header text-left">Joined</th>
+                <th className="table-header text-left">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filtered.map(member => (
+                <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="table-cell">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                        {member.fullName ? member.fullName.charAt(0) : '?'}
+                      </div>
+                      <span className="font-medium text-gray-900">
+                        {member.fullName}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="table-cell text-gray-500">
+                    {member.phoneNumber}
+                  </td>
+                  <td className="table-cell">
+                    <span className={`badge ${roleColor(member.role)}`}>
+                      {member.role}
+                    </span>
+                  </td>
+                  <td className="table-cell">
+                    <span className={`badge ${
+                      member.status === 'Active'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-600'
+                    }`}>
+                      {member.status === 'Active' ? '● Active' : '● Inactive'}
+                    </span>
+                  </td>
+                  <td className="table-cell text-gray-500 text-xs">
+                    {member.dateJoined ? new Date(member.dateJoined).toLocaleDateString() : 'N/A'}
+                  </td>
+                  <td className="table-cell">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => toggleStatus(member)}
+                        className={`text-xs font-medium px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors ${
+                          member.status === 'Active'
+                            ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                            : 'bg-green-50 text-green-600 hover:bg-green-100'
+                        }`}
+                      >
+                        {member.status === 'Active' ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(member)}
+                        className="text-xs font-medium px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg border-none cursor-pointer transition-colors"
+                      >
+                        Reset Pass
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {filtered.length === 0 && (
           <div className="text-center py-12 text-gray-400">

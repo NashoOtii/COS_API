@@ -25,6 +25,7 @@ export default function ExecutiveDashboard() {
   const [summary, setSummary] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(null)
 
   useEffect(() => { fetchCycleData() }, [])
 
@@ -34,8 +35,14 @@ export default function ExecutiveDashboard() {
       setActiveCycle(cycle)
       const { data: sum } = await api.get(`/cycles/${cycle.id}/summary`)
       setSummary(sum)
-    } catch {
-      setActiveCycle(null)
+    } catch (error) {
+      if (error.response?.status === 404) {
+        setActiveCycle(null)
+        setSummary(null)
+      } else { 
+        setFetchError( "Failed to fetch cycle data. Please refresh." )
+        setActiveCycle(null)
+      } 
     } finally {
       setLoading(false)
     }
@@ -43,17 +50,15 @@ export default function ExecutiveDashboard() {
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
-    <div className="flex flex-col items-center space-y-4">
-    <div className="relative w-12 h-12">
-    <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
-    <div className="absolute inset-0 border-4 border-t-emerald-600 rounded-full animate-spin"></div>
+      <div className="flex flex-col items-center space-y-4">
+        <div className="relative w-12 h-12">
+          <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+          <div className="absolute inset-0 border-4 border-t-emerald-600 rounded-full animate-spin"></div>
+        </div>
+      </div>
     </div>
-    <p className="text-sm font-semibold text-gray-500 tracking wide uppercase animate-pulse">
-     Securing Connection & loading dashboard...
-     </p>
-     </div>
-     </div>
   )
+
   return (
     <DashboardLayout
       tabs={tabs}
@@ -61,6 +66,21 @@ export default function ExecutiveDashboard() {
       onTabChange={setActiveTab}
       activeCycle={activeCycle}
     >
+      {/*Show fetch error banner if something went wrong */}
+      {fetchError && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200
+          rounded-xl text-red-700 text-sm flex items-center
+          justify-between">
+          <span>{fetchError}</span>
+          <button
+            onClick={fetchCycleData}
+            className="text-red-700 font-semibold underline
+              bg-transparent border-none cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {activeTab === 'overview' && (
         <CycleOverview
           activeCycle={activeCycle}
@@ -75,7 +95,11 @@ export default function ExecutiveDashboard() {
           onContributionLogged={fetchCycleData}
         />
       )}
-      {activeTab === 'loans' && <LoanQueue activeCycle={activeCycle} />}
+      {activeTab === 'loans' && 
+      <LoanQueue activeCycle={activeCycle}
+       onLoanAction={fetchCycleData}
+      />}
+
       {activeTab === 'investments' && (
         <InvestmentTracker activeCycle={activeCycle} />
       )}

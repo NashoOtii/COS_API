@@ -15,19 +15,30 @@ export default function CycleOverview({ activeCycle, summary, onCycleCreated }) 
     setLoading(true)
     setError('')
     try {
+      const startDateISO = new Date(form.startDate).toISOString()
+
       await api.post('/cycles', {
         ...form,
+        startDate: startDateISO,
         weeklyContributionAmount: parseFloat(form.weeklyContributionAmount),
         maxLoanAmount: parseFloat(form.maxLoanAmount),
       })
       setShowForm(false)
       onCycleCreated()
     } catch (err) {
-      setError(err.response?.data || 'Failed to create cycle.')
-    } finally {
-      setLoading(false)
+      const data = err.response?.data
+    if (typeof data === 'string') setError(data)
+    else if (data?.errors) {
+      setError(Object.values(data.errors).flat().join(' '))
+    } else if (err.response?.status === 500) {
+      setError('Server error.')
+    } else {
+      setError('Failed to create cycle.')
     }
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <div>
@@ -111,7 +122,7 @@ export default function CycleOverview({ activeCycle, summary, onCycleCreated }) 
         </div>
       )}
 
-      {activeCycle && (
+      {activeCycle && summary && (
         <>
           {/* Cycle Summary — Soft Tinted Blocks */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
@@ -149,6 +160,13 @@ export default function CycleOverview({ activeCycle, summary, onCycleCreated }) 
       </p>
     </div>
   ))}
+
+      {activeCycle && !summary && (
+  <div className="text-gray-400 text-sm py-4">
+    Loading summary...
+  </div>
+)}
+
 </div>
 
           {/* Cycle settings */}
