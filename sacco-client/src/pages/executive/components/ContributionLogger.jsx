@@ -188,7 +188,7 @@ export default function ContributionLogger({ activeCycle, onContributionLogged }
                         }`}
                     >
                       {/*spinner inside button only */}
-                      {isSubmitting ? (
+                      {isSubmitting === member.id ? (
                         <span className="flex items-center gap-1.5
                           justify-center">
                           <svg className="w-3 h-3 animate-spin"

@@ -68,10 +68,9 @@ namespace SaccoApi.Controllers
 
             return Ok(new { MemberId = memberId, CurrentStreak = streak });
         }
-
-        // POST: api/contributions
        
-    [HttpPost]
+   // POST: api/contributions
+[HttpPost]
 public async Task<ActionResult<Contribution>> Create(CreateContributionDto dto)
 {
     var cycle = await _context.Cycles.FindAsync(dto.CycleId);
@@ -104,7 +103,15 @@ public async Task<ActionResult<Contribution>> Create(CreateContributionDto dto)
     _context.Contributions.Add(contribution);
     await _context.SaveChangesAsync();
 
-    return CreatedAtAction(nameof(GetAll), new { id = contribution.Id }, contribution);
+    // FIXED: Returns a clean, flat object to prevent circular serialization 
+    return Ok(new {
+        id = contribution.Id,
+        memberId = contribution.MemberId,
+        cycleId = contribution.CycleId,
+        amount = contribution.Amount,
+        weekNumber = contribution.WeekNumber,
+        status = contribution.Status.ToString()
+    });
 }
         // PATCH: api/contributions/5/status
         [HttpPatch("{id}/status")]
