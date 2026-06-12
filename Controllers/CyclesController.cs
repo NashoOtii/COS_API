@@ -50,32 +50,59 @@ namespace SaccoApi.Controllers
             if (cycle == null) return NotFound("No active cycle found.");
             return cycle;
         }
-
         // POST: api/cycles
-        [HttpPost]
-public async Task<ActionResult<AcademicCycle>> Create(CreateCycleDto dto)
+[HttpPost]
+public async Task<ActionResult<AcademicCycle>> Create([FromBody] CreateCycleDto dto)
 {
-    bool hasActive = await _context.Cycles
-        .AnyAsync(c => c.Status == CycleStatus.Active);
-
-    if (hasActive)
-        return BadRequest("An active cycle already exists. Close it before starting a new one.");
-
-    var cycle = new AcademicCycle
+    // 1. Guard against a completely null payload
+    if (dto == null)
     {
-        Name = dto.Name,
-        StartDate = dto.StartDate,
-        EndDate = dto.EndDate,
-        WeeklyContributionAmount = dto.WeeklyContributionAmount,
-        MaxLoanAmount = dto.MaxLoanAmount,
-        Status = CycleStatus.Active,
-        CreatedAt = DateTime.UtcNow
-    };
+        return BadRequest("Invalid cycle data payload.");
+    }
 
-    _context.Cycles.Add(cycle);
-    await _context.SaveChangesAsync();
+    try
+    {
+        bool hasActive = await _context.Cycles
+            .AnyAsync(c => c.Status == CycleStatus.Active);
 
-    return CreatedAtAction(nameof(GetById), new { id = cycle.Id }, cycle);
+        if (hasActive)
+            return BadRequest("An active cycle already exists. Close it before starting a new one.");
+
+        var cycle = new AcademicCycle
+        {
+            Name = dto.Name,
+            StartDate = dto.StartDate,
+            EndDate = dto.EndDate,
+            WeeklyContributionAmount = dto.WeeklyContributionAmount,
+            MaxLoanAmount = dto.MaxLoanAmount,
+            Status = CycleStatus.Active,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Cycles.Add(cycle);
+        await _context.SaveChangesAsync();
+
+        // 2. Return a safe flat object instead of the raw entity to prevent JSON circular loop crashes
+        return CreatedAtAction(nameof(GetById), new { id = cycle.Id }, new {
+            id = cycle.Id,
+            name = cycle.Name,
+            startDate = cycle.StartDate,
+            endDate = cycle.EndDate,
+            status = cycle.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        // This will print cleanly to your Render log dashboard
+        Console.WriteLine($"[CRITICAL] Error creating cycle: {ex.Message}");
+        Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+        
+        // This bypasses the global 500 error and sends a clean JSON payload back to React
+        return StatusCode(500, new { 
+            message = "An internal error occurred while creating the cycle.", 
+            error = ex.Message 
+        });
+    }
 }
 
         // PATCH: api/cycles/5/close
