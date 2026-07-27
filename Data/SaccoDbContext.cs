@@ -75,5 +75,7 @@ namespace SaccoApi.Data
                 .HasForeignKey(a => a.PerformedById)
                 .OnDelete(DeleteBehavior.Restrict);
         }
+
+        
     }
 }

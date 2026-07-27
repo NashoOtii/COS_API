@@ -20,11 +20,5 @@ namespace SaccoApi.DTOs
         // Accept as string to avoid enum deserialization issues
         public string Role { get; set; } = "Member";
 
-        // Questionnaire Data
-        public string? Motivation { get; set; }
-        public string? FinancialGoal { get; set; }
-        public string? WeeklyCommitment { get; set; }
-        public string? ValueAlignment { get; set; }
-        public string? Contribution { get; set; }
     }
 }
