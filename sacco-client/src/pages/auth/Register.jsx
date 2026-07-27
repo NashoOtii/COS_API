@@ -1,38 +1,54 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import api from '../../api/axios' // Make sure you import your axios instance
 
 const ROLES = ['Member', 'Treasurer', 'Secretary', 'Chairperson']
 
 export default function Register() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
-    fullName: '', 
-    phoneNumber: '', 
-    email: '',
-    password: '', 
-    role: 'Member',
+    fullName: '', phoneNumber: '', email: '', password: '', role: 'Member',
   })
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     
-    // Local client-side sanity checks before shifting screens
     if (!form.fullName.trim() || !form.phoneNumber.trim()) {
       setError('Full Name and Phone Number are required.')
       return
     }
-    
     if (form.password.length < 6) {
       setError('Password must be at least 6 characters long.')
       return
     }
 
-    // Diverting account creation details to route state instead of saving to DB yet
-    navigate('/questionnaire', {
-      state: { accountData: form }
-    })
+    setLoading(true)
+    try {
+      // Step 1: Create the account skeleton
+      const response = await api.post('/auth/register', form)
+      
+      // Step 2: Pass the new MemberId to the questionnaire
+      navigate('/questionnaire', {
+        state: { 
+          memberId: response.data.memberId, 
+          memberName: form.fullName 
+        }
+      })
+    } catch (err) {
+      const data = err.response?.data
+      if (Array.isArray(data)) {
+        setError(data.join(' '))
+      } else if (typeof data === 'string') {
+        setError(data)
+      } else {
+        setError('Registration failed. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

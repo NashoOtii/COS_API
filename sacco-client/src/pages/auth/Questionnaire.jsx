@@ -72,18 +72,14 @@ export default function Questionnaire() {
   const progressPct = Math.round((current / questions.length) * 100)
   const hasAnswer = answers[q.id]?.trim()?.length > 0
 
-  // 2. The missing API Submission Logic
+  // 2. The API Submission Logic
   const handleSubmit = async () => {
     setSubmitting(true)
     setError('')
     try {
-      const finalPayload = {
-        ...accountData,
-        ...answers
-      }
-
-      await api.post('/auth/register', finalPayload)
+      await api.put(`/auth/questionnaire/${memberId}`, answers)
       setDone(true)
+
     } catch (err) {
       const data = err.response?.data
       if (!data) {

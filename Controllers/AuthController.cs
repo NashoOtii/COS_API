@@ -33,86 +33,99 @@ namespace SaccoApi.Controllers
         }
 
         // POST: api/auth/register
-        [HttpPost("register")]
-        [EnableRateLimiting("login")] // <--- added this to protect against abuse of the registration endpoint
-        public async Task<IActionResult> Register([FromBody] RegisterDto dto)
-        {
-            // Check phone not already used
-            bool phoneExists = await _context.Members
-                .AnyAsync(m => m.PhoneNumber == dto.PhoneNumber);
+       [HttpPost("register")]
+       [EnableRateLimiting("login")]
+public async Task<IActionResult> Register([FromBody] RegisterDto dto)
+{
+    bool phoneExists = await _context.Members
+         .AnyAsync(m => m.PhoneNumber == dto.PhoneNumber);
 
-            if (phoneExists)
-                return BadRequest("A member with this phone number already exists.");
+    if (phoneExists) 
+    return BadRequest("A member with this phone number already exists.");
 
-             // Parse role string to enum safely
-            if (!Enum.TryParse<MemberRole>(dto.Role, ignoreCase: true, out var memberRole))
-                return BadRequest($"Invalid role '{dto.Role}'. Valid roles: Member, Treasurer, Secretary, Chairperson."); 
+    if (!Enum.TryParse<MemberRole>(dto.Role, ignoreCase: true, out var memberRole))
+        return BadRequest($"Invalid role '{dto.Role}'. Valid roles: Member, Treasurer, Secretary, Chairperson."); 
 
-               // Enforce one person per executive role
     if (memberRole != MemberRole.Member)
     {
         bool roleAlreadyTaken = await _context.Members
-            .AnyAsync(m => m.Role == memberRole && m.Status == MemberStatus.Active);
-
-        if (roleAlreadyTaken)
-            return BadRequest(
-                $"The {dto.Role} position is already filled.");
+             .AnyAsync(m => m.Role == memberRole && m.Status == MemberStatus.Active);
+        if (roleAlreadyTaken) 
+        return BadRequest($"The {dto.Role} position is already filled.");
     }    
-           // Create the Identity user (handles password hashing)
-            var user = new IdentityUser
-            {
-                UserName = dto.PhoneNumber,
-                PhoneNumber = dto.PhoneNumber,
-                Email = dto.Email
-            };
 
-            var result = await _userManager.CreateAsync(user, dto.Password);
-            if (!result.Succeeded)
-                return BadRequest(result.Errors);
-
-             //  Check role exists before assigning
-         var roleName = memberRole.ToString();
-         if (!await _roleManager.RoleExistsAsync(roleName))
-        await _roleManager.CreateAsync(new IdentityRole(roleName));
-
-           var roleResult = await _userManager.AddToRoleAsync(user, roleName);
-          if (!roleResult.Succeeded)
-           {
-        // Clean up the user if role assignment fails
-        await _userManager.DeleteAsync(user);
-        return BadRequest(roleResult.Errors
-            .Select(e => e.Description).ToList());
-            }
-
-
-          // Create the linked Member record
-            var member = new Member
-            {
-                FullName = dto.FullName,
-                PhoneNumber = dto.PhoneNumber,
-                Email = dto.Email,
-                Role = memberRole,
-                Status = MemberStatus.Inactive,//pends approval
-                DateJoined = DateTime.UtcNow,
-                ApplicationUserId = user.Id,
-
-                Motivation = dto.Motivation,
-                FinancialGoal = dto.FinancialGoal,
-                WeeklyCommitment = dto.WeeklyCommitment,
-                ValueAlignment = dto.ValueAlignment,
-                Contribution = dto.Contribution
-            };
-
-            _context.Members.Add(member);
-            await _context.SaveChangesAsync();
-
-             return Ok(new
+    // START TRANSACTION
+    using var transaction = await _context.Database.BeginTransactionAsync();
+    
+    try 
     {
-        Message = "Registration submitted. Your account is pending approval " +
-                  "this may take a few days.",
-        MemberId = member.Id
-    });
-        }
+        var user = new IdentityUser
+        {
+            UserName = dto.PhoneNumber,
+            PhoneNumber = dto.PhoneNumber,
+            Email = string.IsNullOrWhiteSpace(dto.Email) ? $"{dto.PhoneNumber}@cos.placeholder" : dto.Email
+        };
+
+        var result = await _userManager.CreateAsync(user, dto.Password);
+        if (!result.Succeeded) 
+            return BadRequest(result.Errors.Select(e => e.Description));
+
+        var roleName = memberRole.ToString();
+        if (!await _roleManager.RoleExistsAsync(roleName))
+            await _roleManager.CreateAsync(new IdentityRole(roleName));
+
+        var roleResult = await _userManager.AddToRoleAsync(user, roleName);
+        if (!roleResult.Succeeded) return BadRequest(roleResult.Errors.Select(e => e.Description));
+
+        // Create Skeleton Member (No questionnaire data yet)
+        var member = new Member
+        {
+            FullName = dto.FullName.Trim(),
+            PhoneNumber = dto.PhoneNumber.Trim(),
+            Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
+            Role = memberRole,
+            Status = MemberStatus.Inactive, 
+            DateJoined = DateTime.UtcNow,
+            ApplicationUserId = user.Id
+        };
+
+        _context.Members.Add(member);
+        await _context.SaveChangesAsync();
+
+        // COMMIT TRANSACTION IF EVERYTHING SUCCEEDS
+        await transaction.CommitAsync();
+
+        return Ok(new {
+            Message = "Account created.",
+            MemberId = member.Id
+        });
+    }
+    catch (Exception ex)
+    {
+        // ROLLBACK IF ANYTHING FAILS (Prevents orphaned users)
+        await transaction.RollbackAsync();
+        return StatusCode(500, "Registration failed. No data was saved.");
+    }
+}
+
+        // PUT: api/auth/questionnaire/{memberId}
+[HttpPut("questionnaire/{memberId}")]
+public async Task<IActionResult> SubmitQuestionnaire(int memberId, [FromBody] QuestionnaireDto dto)
+{
+    var member = await _context.Members.FindAsync(memberId);
+    if (member == null) return NotFound("Member record not found.");
+
+    // Update the record with questionnaire answers
+    member.Motivation = dto.Motivation;
+    member.FinancialGoal = dto.FinancialGoal;
+    member.WeeklyCommitment = dto.WeeklyCommitment;
+    member.ValueAlignment = dto.ValueAlignment;
+    member.Contribution = dto.Contribution;
+
+    await _context.SaveChangesAsync();
+
+    return Ok(new { Message = "Questionnaire submitted. Your account is pending executive approval." });
+}
 
         // POST: api/auth/login
         [HttpPost("login")]
