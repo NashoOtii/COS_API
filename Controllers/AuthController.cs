@@ -32,20 +32,30 @@ namespace SaccoApi.Controllers
             _config = config;
         }
 
-        // POST: api/auth/register
+       // POST: api/auth/register
 [HttpPost("register")]
 [EnableRateLimiting("login")]
 public async Task<IActionResult> Register([FromBody] RegisterDto dto)
 {
-    bool phoneExists = await _context.Members
-        .AnyAsync(m => m.PhoneNumber == dto.PhoneNumber);
+    if (dto == null)
+        return BadRequest("Registration data is required.");
 
-    if (phoneExists) 
+    var phoneNumber = dto.PhoneNumber.Trim();
+
+    // 1. Check if phone/user exists in Members OR Identity
+    bool memberExists = await _context.Members.AnyAsync(m => m.PhoneNumber == phoneNumber);
+    if (memberExists) 
         return BadRequest("A member with this phone number already exists.");
 
+    var existingIdentityUser = await _userManager.FindByNameAsync(phoneNumber);
+    if (existingIdentityUser != null)
+        return BadRequest("An account with this phone number is already registered.");
+
+    // 2. Validate Role
     if (!Enum.TryParse<MemberRole>(dto.Role, ignoreCase: true, out var memberRole))
         return BadRequest($"Invalid role '{dto.Role}'. Valid roles: Member, Treasurer, Secretary, Chairperson."); 
 
+    // 3. Enforce Executive Role Uniqueness
     if (memberRole != MemberRole.Member)
     {
         bool roleAlreadyTaken = await _context.Members
@@ -54,65 +64,77 @@ public async Task<IActionResult> Register([FromBody] RegisterDto dto)
             return BadRequest($"The {dto.Role} position is already filled.");
     }    
 
-    // Use EF Core Execution Strategy for PostgreSQL connection retries
-    var strategy = _context.Database.CreateExecutionStrategy();
-
-    return await strategy.ExecuteAsync<IActionResult>(async () =>
+    // 4. Create Identity User
+    var user = new IdentityUser
     {
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        UserName = phoneNumber,
+        PhoneNumber = phoneNumber,
+        Email = string.IsNullOrWhiteSpace(dto.Email) 
+            ? $"{phoneNumber}@cos.placeholder" 
+            : dto.Email.Trim(),
+        EmailConfirmed = true
+    };
 
-        try 
-        {
-            var user = new IdentityUser
-            {
-                UserName = dto.PhoneNumber.Trim(),
-                PhoneNumber = dto.PhoneNumber.Trim(),
-                Email = string.IsNullOrWhiteSpace(dto.Email) ? $"{dto.PhoneNumber.Trim()}@cos.placeholder" : dto.Email.Trim()
-            };
+    var createResult = await _userManager.CreateAsync(user, dto.Password);
+    if (!createResult.Succeeded) 
+        return BadRequest(createResult.Errors.Select(e => e.Description));
 
-            var result = await _userManager.CreateAsync(user, dto.Password);
-            if (!result.Succeeded) 
-                return BadRequest(result.Errors.Select(e => e.Description));
+    // 5. Role Assignment
+    var roleName = memberRole.ToString();
+    if (!await _roleManager.RoleExistsAsync(roleName))
+        await _roleManager.CreateAsync(new IdentityRole(roleName));
 
-            var roleName = memberRole.ToString();
-            if (!await _roleManager.RoleExistsAsync(roleName))
-                await _roleManager.CreateAsync(new IdentityRole(roleName));
+    var roleResult = await _userManager.AddToRoleAsync(user, roleName);
+    if (!roleResult.Succeeded)
+    {
+        await SafeDeleteUserAsync(user);
+        return BadRequest(roleResult.Errors.Select(e => e.Description));
+    }
 
-            var roleResult = await _userManager.AddToRoleAsync(user, roleName);
-            if (!roleResult.Succeeded) 
-                return BadRequest(roleResult.Errors.Select(e => e.Description));
+    // 6. Create Member Record
+    var initialStatus = memberRole != MemberRole.Member ? MemberStatus.Active : MemberStatus.Inactive;
 
-            // Executive roles (Treasurer, Chairperson, Secretary) are immediately active to serve as admins.
-            // Regular Members remain Inactive until executive approval.
-            var initialStatus = memberRole != MemberRole.Member ? MemberStatus.Active : MemberStatus.Inactive;
+    var member = new Member
+    {
+        FullName = dto.FullName.Trim(),
+        PhoneNumber = phoneNumber,
+        Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
+        Role = memberRole,
+        Status = initialStatus, 
+        DateJoined = DateTime.UtcNow,
+        ApplicationUserId = user.Id
+    };
 
-            var member = new Member
-            {
-                FullName = dto.FullName.Trim(),
-                PhoneNumber = dto.PhoneNumber.Trim(),
-                Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
-                Role = memberRole,
-                Status = initialStatus, 
-                DateJoined = DateTime.UtcNow,
-                ApplicationUserId = user.Id
-            };
+    try 
+    {
+        _context.Members.Add(member);
+        await _context.SaveChangesAsync();
 
-            _context.Members.Add(member);
-            await _context.SaveChangesAsync();
+        return Ok(new {
+            Message = "Account created successfully.",
+            MemberId = member.Id
+        });
+    }
+    catch (Exception ex)
+    {
+        // Compensating action: clean up created user if member persistence fails
+        await SafeDeleteUserAsync(user);
 
-            await transaction.CommitAsync();
+        var innerError = ex.InnerException?.Message ?? ex.Message;
+        return StatusCode(500, $"Registration failed: {innerError}");
+    }
+}
 
-            return Ok(new {
-                Message = "Account created successfully.",
-                MemberId = member.Id
-            });
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync();
-            return StatusCode(500, $"Registration failed: {ex.Message}");
-        }
-    });
+private async Task SafeDeleteUserAsync(IdentityUser user)
+{
+    try
+    {
+        await _userManager.DeleteAsync(user);
+    }
+    catch
+    {
+        // Suppress secondary cleanup exceptions to preserve primary error context
+    }
 }
 
         // PUT: api/auth/questionnaire/{memberId}
