@@ -33,15 +33,15 @@ namespace SaccoApi.Controllers
         }
 
         // POST: api/auth/register
-       [HttpPost("register")]
-       [EnableRateLimiting("login")]
+[HttpPost("register")]
+[EnableRateLimiting("login")]
 public async Task<IActionResult> Register([FromBody] RegisterDto dto)
 {
     bool phoneExists = await _context.Members
-         .AnyAsync(m => m.PhoneNumber == dto.PhoneNumber);
+        .AnyAsync(m => m.PhoneNumber == dto.PhoneNumber);
 
     if (phoneExists) 
-    return BadRequest("A member with this phone number already exists.");
+        return BadRequest("A member with this phone number already exists.");
 
     if (!Enum.TryParse<MemberRole>(dto.Role, ignoreCase: true, out var memberRole))
         return BadRequest($"Invalid role '{dto.Role}'. Valid roles: Member, Treasurer, Secretary, Chairperson."); 
@@ -49,63 +49,70 @@ public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     if (memberRole != MemberRole.Member)
     {
         bool roleAlreadyTaken = await _context.Members
-             .AnyAsync(m => m.Role == memberRole && m.Status == MemberStatus.Active);
+            .AnyAsync(m => m.Role == memberRole && m.Status == MemberStatus.Active);
         if (roleAlreadyTaken) 
-        return BadRequest($"The {dto.Role} position is already filled.");
+            return BadRequest($"The {dto.Role} position is already filled.");
     }    
 
-    // START TRANSACTION
-    using var transaction = await _context.Database.BeginTransactionAsync();
-    
-    try 
+    // Use EF Core Execution Strategy for PostgreSQL connection retries
+    var strategy = _context.Database.CreateExecutionStrategy();
+
+    return await strategy.ExecuteAsync<IActionResult>(async () =>
     {
-        var user = new IdentityUser
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try 
         {
-            UserName = dto.PhoneNumber,
-            PhoneNumber = dto.PhoneNumber,
-            Email = string.IsNullOrWhiteSpace(dto.Email) ? $"{dto.PhoneNumber}@cos.placeholder" : dto.Email
-        };
+            var user = new IdentityUser
+            {
+                UserName = dto.PhoneNumber.Trim(),
+                PhoneNumber = dto.PhoneNumber.Trim(),
+                Email = string.IsNullOrWhiteSpace(dto.Email) ? $"{dto.PhoneNumber.Trim()}@cos.placeholder" : dto.Email.Trim()
+            };
 
-        var result = await _userManager.CreateAsync(user, dto.Password);
-        if (!result.Succeeded) 
-            return BadRequest(result.Errors.Select(e => e.Description));
+            var result = await _userManager.CreateAsync(user, dto.Password);
+            if (!result.Succeeded) 
+                return BadRequest(result.Errors.Select(e => e.Description));
 
-        var roleName = memberRole.ToString();
-        if (!await _roleManager.RoleExistsAsync(roleName))
-            await _roleManager.CreateAsync(new IdentityRole(roleName));
+            var roleName = memberRole.ToString();
+            if (!await _roleManager.RoleExistsAsync(roleName))
+                await _roleManager.CreateAsync(new IdentityRole(roleName));
 
-        var roleResult = await _userManager.AddToRoleAsync(user, roleName);
-        if (!roleResult.Succeeded) return BadRequest(roleResult.Errors.Select(e => e.Description));
+            var roleResult = await _userManager.AddToRoleAsync(user, roleName);
+            if (!roleResult.Succeeded) 
+                return BadRequest(roleResult.Errors.Select(e => e.Description));
 
-        // Create Skeleton Member (No questionnaire data yet)
-        var member = new Member
+            // Executive roles (Treasurer, Chairperson, Secretary) are immediately active to serve as admins.
+            // Regular Members remain Inactive until executive approval.
+            var initialStatus = memberRole != MemberRole.Member ? MemberStatus.Active : MemberStatus.Inactive;
+
+            var member = new Member
+            {
+                FullName = dto.FullName.Trim(),
+                PhoneNumber = dto.PhoneNumber.Trim(),
+                Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
+                Role = memberRole,
+                Status = initialStatus, 
+                DateJoined = DateTime.UtcNow,
+                ApplicationUserId = user.Id
+            };
+
+            _context.Members.Add(member);
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            return Ok(new {
+                Message = "Account created successfully.",
+                MemberId = member.Id
+            });
+        }
+        catch (Exception ex)
         {
-            FullName = dto.FullName.Trim(),
-            PhoneNumber = dto.PhoneNumber.Trim(),
-            Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
-            Role = memberRole,
-            Status = MemberStatus.Inactive, 
-            DateJoined = DateTime.UtcNow,
-            ApplicationUserId = user.Id
-        };
-
-        _context.Members.Add(member);
-        await _context.SaveChangesAsync();
-
-        // COMMIT TRANSACTION IF EVERYTHING SUCCEEDS
-        await transaction.CommitAsync();
-
-        return Ok(new {
-            Message = "Account created.",
-            MemberId = member.Id
-        });
-    }
-    catch (Exception ex)
-    {
-        // ROLLBACK IF ANYTHING FAILS (Prevents orphaned users)
-        await transaction.RollbackAsync();
-        return StatusCode(500, "Registration failed. No data was saved.");
-    }
+            await transaction.RollbackAsync();
+            return StatusCode(500, $"Registration failed: {ex.Message}");
+        }
+    });
 }
 
         // PUT: api/auth/questionnaire/{memberId}

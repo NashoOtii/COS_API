@@ -5,6 +5,8 @@ RUN dotnet restore
 COPY . .
 RUN dotnet publish -c Release -o /app
 
+ENV DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app .

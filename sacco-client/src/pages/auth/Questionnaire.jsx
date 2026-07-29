@@ -51,15 +51,16 @@ export default function Questionnaire() {
   const navigate = useNavigate()
   const location = useLocation()
   
-  // 1. Route Guard: Ensure we have the user's registration data from the previous step
-  const accountData = location.state?.accountData
+  // Extract values passed from Register.jsx
+  const memberId = location.state?.memberId
+  const memberName = location.state?.memberName || 'there'
+
+  // Guard clause: redirect to register if memberId is missing
   useEffect(() => {
-    if (!accountData) {
+    if (!memberId) {
       navigate('/register', { replace: true })
     }
-  }, [accountData, navigate])
-
-  const memberName = accountData?.fullName || 'there'
+  }, [memberId, navigate])
 
   const [current, setCurrent] = useState(0)
   const [answers, setAnswers] = useState({})
@@ -72,7 +73,7 @@ export default function Questionnaire() {
   const progressPct = Math.round((current / questions.length) * 100)
   const hasAnswer = answers[q.id]?.trim()?.length > 0
 
-  // 2. The API Submission Logic
+  // The API Submission Logic
   const handleSubmit = async () => {
     setSubmitting(true)
     setError('')
