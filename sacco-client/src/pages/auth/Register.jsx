@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import api from '../../api/axios' // Make sure you import your axios instance
+import api from '../../api/axios'
 
 const ROLES = ['Member', 'Treasurer', 'Secretary', 'Chairperson']
 
@@ -14,6 +14,8 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (loading) return
+
     setError('')
     
     if (!form.fullName.trim() || !form.phoneNumber.trim()) {
@@ -83,6 +85,7 @@ export default function Register() {
                 value={form.fullName}
                 onChange={e => setForm({ ...form, fullName: e.target.value })}
                 className="input-field"
+                disabled={loading}
                 required
               />
             </div>
@@ -95,6 +98,7 @@ export default function Register() {
                 value={form.phoneNumber}
                 onChange={e => setForm({ ...form, phoneNumber: e.target.value })}
                 className="input-field"
+                disabled={loading}
                 required
               />
             </div>
@@ -110,6 +114,7 @@ export default function Register() {
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
                 className="input-field"
+                disabled={loading}
                 required
               />
             </div>
@@ -122,6 +127,7 @@ export default function Register() {
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
                 className="input-field"
+                disabled={loading}
                 required
               />
             </div>
@@ -132,6 +138,7 @@ export default function Register() {
                 value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}
                 className="input-field"
+                disabled={loading}
               >
                 {ROLES.map(r => (
                   <option key={r} value={r}>{r}</option>
@@ -142,12 +149,25 @@ export default function Register() {
               </p>
             </div>
 
-            {/* Adjusted naming to denote multi-step progression */}
+            {/* Locked button during submission state */}
             <button
               type="submit"
-              className="btn-primary w-full py-3 text-base"
+              disabled={loading}
+              className={`btn-primary w-full py-3 text-base flex items-center justify-center gap-2 transition-all ${
+                loading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
             >
-              Continue to Questionnaire →
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span>Connecting to server...</span>
+                </>
+              ) : (
+                'Continue to Questionnaire →'
+              )}
             </button>
           </form>
 
