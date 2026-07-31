@@ -119,9 +119,10 @@ public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     catch (Exception ex)
     {
         // Compensating action: clean up created user if member persistence fails
-        await SafeDeleteUserAsync(user);
+        //await SafeDeleteUserAsync(user);
 
         var innerError = ex.InnerException?.Message ?? ex.Message;
+        Console.WriteLine($"=== REAL DB ERROR: {innerError} ===");
         return StatusCode(500, $"Registration failed: {innerError}");
     }
 }
