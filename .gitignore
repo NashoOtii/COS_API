@@ -30,3 +30,7 @@ obj/
 # Backend Secrets & Configs
 appsettings.Development.json
 *.env
+
+# Backend Secrets & Configs
+appsettings.*.json
+*.env
