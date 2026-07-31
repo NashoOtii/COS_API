@@ -31,14 +31,19 @@ export default function Register() {
     try {
       // Step 1: Create the account skeleton
       const response = await api.post('/auth/register', form)
+
+      console.log("REGISTER RESPONSE:", response)
+      console.log("REGISTER DATA:", response.data)
       
       // Step 2: Pass the new MemberId to the questionnaire
-      navigate('/questionnaire', {
+      navigate(`/questionnaire/${response.data.memberId}`, {
         state: { 
           memberId: response.data.memberId, 
           memberName: form.fullName 
         }
       })
+        console.log("Navigation called")
+
     } catch (err) {
       const data = err.response?.data
       if (Array.isArray(data)) {

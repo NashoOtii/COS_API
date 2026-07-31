@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import api from '../../api/axios'
 
 const questions = [
@@ -52,9 +52,11 @@ export default function Questionnaire() {
   const location = useLocation()
   
   // Extract values passed from Register.jsx
-  const memberId = location.state?.memberId
+  const { memberId } = useParams()
   const memberName = location.state?.memberName || 'there'
-
+  console.log("Questionnaire state:", location.state)
+  console.log("MemberId:", memberId)
+  console.log("Member Name:", memberName)
   // Guard clause: redirect to register if memberId is missing
   useEffect(() => {
     if (!memberId) {
