@@ -49,7 +49,7 @@ export default function App() {
           {/* Default redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
           <Route path="/" element={<Landing />} />
-          <Route path="/questionnaire" element={<Questionnaire />} />
+          <Route path="/questionnaire/:memberId" element={<Questionnaire />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
