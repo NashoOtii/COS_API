@@ -136,19 +136,24 @@ public async Task<IActionResult> Register([FromBody] RegisterDto dto)
 
         var innerError = ex.InnerException?.Message ?? ex.Message;
         Console.WriteLine($"=== REAL DB ERROR: {innerError} ===");
-        return StatusCode(500, $"Registration failed: {innerError}");
+        return StatusCode(500, new
+        {
+            error = ex.Message,
+            inner = ex.InnerException?.Message,
+            stack = ex.InnerException?.StackTrace
+        });
     }
 }
 
 private async Task SafeDeleteUserAsync(IdentityUser user)
 {
-    try
+    var result = await _userManager.DeleteAsync(user);
+
+    if (!result.Succeeded)
     {
-        await _userManager.DeleteAsync(user);
-    }
-    catch
-    {
-        // Suppress secondary cleanup exceptions to preserve primary error context
+        throw new Exception(
+            "Cleanup failed: " +
+            string.Join(", ", result.Errors.Select(e => e.Description)));
     }
 }
 
