@@ -78,7 +78,7 @@ public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     Console.WriteLine("Creating Identity user...");
     var user = new IdentityUser
     {
-        Id = Guid.NewGuid().ToString(),
+        //Id = Guid.NewGuid().ToString(),
         UserName = phoneNumber,
         PhoneNumber = phoneNumber,
         Email = string.IsNullOrWhiteSpace(dto.Email) 
