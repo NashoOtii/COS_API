@@ -37,19 +37,29 @@ namespace SaccoApi.Controllers
 [EnableRateLimiting("login")]
 public async Task<IActionResult> Register([FromBody] RegisterDto dto)
 {
+    Console.WriteLine("========== REGISTER START ==========");
+
     if (dto == null)
         return BadRequest("Registration data is required.");
 
+         Console.WriteLine("1. Request received");
+
     var phoneNumber = dto.PhoneNumber.Trim();
+
+    Console.WriteLine("2. Checking Members table...");
 
     // 1. Check if phone/user exists in Members OR Identity
     bool memberExists = await _context.Members.AnyAsync(m => m.PhoneNumber == phoneNumber);
     if (memberExists) 
         return BadRequest("A member with this phone number already exists.");
 
+         Console.WriteLine($"3. Member exists = {memberExists}");
+
     var existingIdentityUser = await _userManager.FindByNameAsync(phoneNumber);
     if (existingIdentityUser != null)
         return BadRequest("An account with this phone number is already registered.");
+
+        Console.WriteLine("4. Identity lookup complete");
 
     // 2. Validate Role
     if (!Enum.TryParse<MemberRole>(dto.Role, ignoreCase: true, out var memberRole))
@@ -65,6 +75,7 @@ public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     }    
 
     // 4. Create Identity User
+    Console.WriteLine("Creating Identity user...");
     var user = new IdentityUser
     {
         Id = Guid.NewGuid().ToString(),
@@ -81,6 +92,7 @@ public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         return BadRequest(createResult.Errors.Select(e => e.Description));
 
     // 5. Role Assignment
+    Console.WriteLine("Assigning role...");
     var roleName = memberRole.ToString();
     if (!await _roleManager.RoleExistsAsync(roleName))
         await _roleManager.CreateAsync(new IdentityRole(roleName));
@@ -93,6 +105,7 @@ public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     }
 
     // 6. Create Member Record
+    Console.WriteLine("Saving Member...");
     var initialStatus = memberRole != MemberRole.Member ? MemberStatus.Active : MemberStatus.Inactive;
 
     var member = new Member

@@ -44,8 +44,8 @@ if (string.IsNullOrEmpty(connectionString))
         "Please check your appsettings.Development.json or environment variables.");
 }
 
-builder.Services.AddDbContext<SaccoDbContext>(options =>
-    options.UseNpgsql(connectionString));
+/*builder.Services.AddDbContext<SaccoDbContext>(options =>
+    options.UseNpgsql(connectionString));*/
 
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
@@ -188,6 +188,26 @@ if (app.Environment.IsDevelopment())
         options.Theme = ScalarTheme.DeepSpace;
     });
 }
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<
+            Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+
+        if (feature != null)
+        {
+            Console.WriteLine(feature.Error.ToString());
+        }
+
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = feature?.Error.Message
+        });
+    });
+});
 
 app.UseRouting();
 app.UseCors("AllowFrontend");     
